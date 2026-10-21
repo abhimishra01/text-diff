@@ -238,7 +238,7 @@ export function entryHtml(res, e, idx, view, hidden, expanded) {
         let gi = -1;
         let inGroup = false;
         r.segs.forEach((p, i) => {
-          if (p[0] === 0) { inGroup = false; inner += fragHtml(r.at.slice(p[1], p[2]), hidden); return; }
+          if (p[0] === 0) { inGroup = false; const part = r.at.slice(p[1], p[2]); inner += rangesHtml(part, plain(part), hidden, idx, exp, -1); return; }
           if (!inGroup) { gi++; inGroup = true; }
           const ca = e.ci0 >= 0 ? ` data-ci="${e.ci0 + gi}"` : '';
           const can = isSmall(r, i) ? ' class="can"' : '';

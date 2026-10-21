@@ -35,3 +35,6 @@ npm run test:ui        # browser tests (needs a build, Google Chrome and playwri
 - Text over 600,000 characters is kept in memory and the box shows a read-only preview. This keeps typing fast.
 - Set `SITE_MODE=bingemind` for the bingemind.com build. `PAGES_BASE` and `PAGES_SITE` build the GitHub Pages copy (noindex).
 - Libraries: none at run time. The diff engine is our own code.
+
+## GitHub Pages
+`.github/workflows/pages.yml` builds on every push to `main` and serves the site at https://abhimishra01.github.io/text-diff/ (noindex). The build sets `PAGES_BASE=/text-diff/` and `PAGES_SITE=https://abhimishra01.github.io`. Canonical URLs always name https://bingemind.com/text-diff/. Internal links use `src/lib/url.ts`.
