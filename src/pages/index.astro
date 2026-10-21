@@ -1,0 +1,55 @@
+---
+import Base from '../layouts/Base.astro';
+import Tool from '../components/Tool.astro';
+import AdSlot from '../components/AdSlot.astro';
+import Article from '../components/Article.astro';
+import Faq from '../components/Faq.astro';
+import site from '../site.config.ts';
+import { faq } from '../data/faq.ts';
+
+const base = site.origin;
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: site.name,
+    url: `${base}/`,
+    description: site.description,
+    applicationCategory: site.category,
+    operatingSystem: 'Any',
+    browserRequirements: 'Requires JavaScript',
+    inLanguage: site.locale,
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+    author: { '@type': 'Person', name: 'Abhishek Mishra', jobTitle: 'Software Development Engineer', worksFor: { '@type': 'Organization', name: 'Oqu AI' }, url: 'https://bingemind.com/abhishek-mishra/' },
+    publisher: { '@type': 'Organization', name: 'Bingemind', url: 'https://bingemind.com/' },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Bingemind', item: 'https://bingemind.com/' },
+      { '@type': 'ListItem', position: 2, name: 'Free tools', item: 'https://bingemind.com/tools/' },
+      { '@type': 'ListItem', position: 3, name: site.name, item: `${base}/` },
+    ],
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faq.map((f) => ({
+      '@type': 'Question',
+      name: f.q,
+      acceptedAnswer: { '@type': 'Answer', text: f.a },
+    })),
+  },
+];
+---
+<Base jsonLd={jsonLd} fullTitle="Text Diff Checker: Compare Two Texts Online (Free)">
+  <section class="mx-auto max-w-[88rem] px-4 pt-4 sm:pt-8">
+    <h1 class="text-xl font-extrabold leading-tight tracking-tight sm:text-2xl">Text Diff Checker: Find the Difference Between Two Texts</h1>
+    <p class="mb-4 mt-1 text-sm text-muted sm:text-base">Compare by line, word or character. Free, no limits, and your text stays in your browser.</p>
+    <div class="min-h-[30rem]"><Tool /></div>
+    <AdSlot />
+  </section>
+  <Article />
+  <Faq />
+</Base>

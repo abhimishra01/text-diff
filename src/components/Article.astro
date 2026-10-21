@@ -1,0 +1,63 @@
+---
+// SEO article for the hub page. Plain language, short sentences, measured numbers only.
+---
+<section aria-labelledby="about-tool" class="mx-auto max-w-5xl px-4 pt-16">
+  <article class="prose-site">
+    <h2 id="about-tool" style="margin-top:0">What a text diff checker does</h2>
+    <p>A text diff checker compares two texts and shows what changed. You paste an original and a changed version. The tool marks removed text, added text and edited lines. Use it for drafts, contracts, configuration files, logs, translations and any two versions of the same text.</p>
+
+    <h2>How to compare two texts in three steps</h2>
+    <ol>
+      <li>Paste the original text in the left box and the changed text in the right box. You can also drop a text file on a box.</li>
+      <li>Pick Lines, Words or Characters. The result updates as you type.</li>
+      <li>Read the result. Press <kbd>n</kbd> for the next change and <kbd>p</kbd> for the previous one.</li>
+    </ol>
+
+    <h2>Lines, words or characters?</h2>
+    <table class="wide">
+      <thead><tr><th>Mode</th><th>Best for</th><th>What it marks</th></tr></thead>
+      <tbody>
+        <tr><td>Lines</td><td>Code, logs, configs, lists</td><td>Changed lines, and the changed words inside them</td></tr>
+        <tr><td>Words</td><td>Drafts, essays, contracts</td><td>Added and removed words</td></tr>
+        <tr><td>Characters</td><td>Names, codes, one odd symbol</td><td>Single characters. An emoji stays whole.</td></tr>
+      </tbody>
+    </table>
+    <p>If your lines are long, the tool suggests Words mode. A paragraph that someone re-wrapped shows up as a changed line in Lines mode. In Words mode, turn on "Ignore amount of whitespace" and the new line breaks no longer count.</p>
+
+    <h2>Options that remove noise</h2>
+    <p>Most differences you do not care about are small. The options hide them. The original text always stays on screen. The tool only skips these differences when it compares.</p>
+    <ul>
+      <li><strong>Ignore case:</strong> "Hello" and "hello" are equal.</li>
+      <li><strong>Whitespace:</strong> ignore spaces at the start and end of lines, ignore the amount of whitespace, or ignore all of it.</li>
+      <li><strong>Ignore blank lines:</strong> empty lines do not count.</li>
+      <li><strong>Line endings:</strong> Windows (CRLF), Unix (LF) and old Mac (CR) endings are equal. This is on by default.</li>
+      <li><strong>Clean characters:</strong> treat smart quotes as plain quotes, treat special spaces as spaces, and ignore zero-width characters.</li>
+    </ul>
+
+    <h2>Why two texts that look the same are different</h2>
+    <p>Some characters look alike but are not the same. Turn on "Show hidden characters" to see them. Then click a change of one to three characters. A small card shows each character with its code.</p>
+    <table class="wide">
+      <thead><tr><th>Culprit</th><th>Code</th><th>What happens</th></tr></thead>
+      <tbody>
+        <tr><td>Non-breaking space</td><td>U+00A0</td><td>Looks like a space. Often comes from Word or a web page.</td></tr>
+        <tr><td>Zero-width space</td><td>U+200B</td><td>Takes no room on screen. Breaks exact matches.</td></tr>
+        <tr><td>Smart quotes</td><td>U+201C, U+201D</td><td>Curly quotes replace straight quotes.</td></tr>
+        <tr><td>Long dash</td><td>U+2013, U+2014</td><td>Replaces a plain hyphen.</td></tr>
+        <tr><td>Accent stored in two parts</td><td>U+0065 U+0301</td><td>Looks like é but is e plus an accent mark.</td></tr>
+        <tr><td>Tab or CRLF</td><td>U+0009, CR LF</td><td>Spaces and tabs look alike. Windows adds a CR to each line.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Read the result: split, unified or inline</h2>
+    <p>Split puts the two texts side by side, row by row. Unified shows one column, with a minus sign for removed lines and a plus sign for added lines. Inline shows one flowing text with deleted words struck through and added words underlined. Use "Copy redline" to paste the inline result into Word, Google Docs or an email. The colors come with it.</p>
+
+    <h2>Large texts</h2>
+    <p>The comparing runs in a background thread, so the page stays responsive while it works. In our tests a text of 100,000 lines (about 4 MB) with 1,000 changed lines compared in under a second. When two large texts are almost completely different, the tool switches to an approximate method. It then shows a note. Every change it shows is real, but the list may not be the shortest possible.</p>
+
+    <h2>Privacy</h2>
+    <p>The comparing happens in your browser. The tool does not send your text to a server. You can check this yourself. Open your browser's developer tools, go to the Network tab, paste two texts and watch. No request carries your text. The tool remembers your options and your theme choice on your device. It does not save your texts.</p>
+
+    <h2>What this tool does not do</h2>
+    <p>It compares text only. It does not open Word files, PDFs, spreadsheets or folders. Copy the text out and paste it here. It is not a plagiarism checker. The similarity number counts shared words and nothing else. To compare two JSON files by their data, use a JSON-aware tool, and to compare two lists of items use a list compare tool. You can find more on our <a href="https://bingemind.com/tools/">free tools page</a>.</p>
+  </article>
+</section>

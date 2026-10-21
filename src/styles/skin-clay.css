@@ -1,0 +1,57 @@
+/* Skin: Soft clay (warm, rounded, puffy cards). Active when <html data-skin="clay">.
+   Tokens first, then a few surface rules. Never put clay on data tables. */
+:root[data-skin="clay"] {
+  --font-sans: ui-rounded, "SF Pro Rounded", "Nunito", "Varela Round", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: var(--font-sans);
+  --radius-xl: 20px;
+  --radius-2xl: 30px;
+  --paper: color-mix(in oklab, var(--brand) 7%, #f5f3f1);
+  --card: color-mix(in oklab, var(--brand) 3%, #ffffff);
+  --ink: #1f1a1d;
+  --muted: #5c5559;
+  --line: color-mix(in oklab, var(--brand) 14%, #e4e0e2);
+  --edge: color-mix(in srgb, var(--brand) 30%, #8a8487);
+  --input-bg: color-mix(in oklab, var(--brand) 6%, #f1efed);
+  --brand-ink: color-mix(in oklab, var(--brand) 85%, black);
+  --brand-soft: color-mix(in oklab, var(--brand) 16%, #ffffff);
+  --card-shadow: 0 18px 40px -16px color-mix(in oklab, var(--brand) 35%, transparent), inset 0 -6px 0 color-mix(in oklab, var(--brand) 8%, transparent), inset 0 2px 0 #fff;
+  --panel-shadow: 0 8px 18px -10px color-mix(in oklab, var(--brand) 30%, transparent), inset 0 2px 0 #fff;
+  --result-shadow: 0 10px 22px -12px color-mix(in oklab, var(--brand) 45%, transparent), inset 0 -4px 0 color-mix(in oklab, var(--brand) 12%, transparent), inset 0 2px 0 rgb(255 255 255 / .9);
+  --btn-shadow: 0 6px 14px -6px color-mix(in oklab, var(--brand) 70%, transparent), inset 0 -3px 0 rgb(0 0 0 / .18), inset 0 2px 0 rgb(255 255 255 / .25);
+  --control-shadow: 0 4px 10px -6px color-mix(in oklab, var(--brand) 40%, transparent), inset 0 -2px 0 color-mix(in oklab, var(--brand) 10%, transparent), inset 0 1px 0 #fff;
+  --inset-shadow: inset 0 2px 5px color-mix(in oklab, var(--brand) 14%, transparent);
+}
+:root[data-skin="clay"][data-theme="dark"] {
+  --paper: color-mix(in oklab, var(--brand) 9%, #141215);
+  --card: color-mix(in oklab, var(--brand) 9%, #1f1c21);
+  --ink: #f1edf0;
+  --muted: #b4adb2;
+  --line: color-mix(in oklab, var(--brand) 14%, #33303a);
+  --edge: color-mix(in srgb, var(--brand) 20%, #8a8388);
+  --input-bg: color-mix(in oklab, var(--brand) 6%, #161418);
+  --brand-ink: color-mix(in oklab, var(--brand) 50%, white);
+  --brand-soft: color-mix(in oklab, var(--brand) 28%, #1f1c21);
+  --card-shadow: 0 18px 40px -16px rgb(0 0 0 / .7), inset 0 -6px 0 rgb(0 0 0 / .25), inset 0 1px 0 rgb(255 255 255 / .07);
+  --panel-shadow: 0 8px 18px -10px rgb(0 0 0 / .6), inset 0 1px 0 rgb(255 255 255 / .06);
+  --result-shadow: 0 10px 22px -12px rgb(0 0 0 / .7), inset 0 -4px 0 rgb(0 0 0 / .25), inset 0 1px 0 rgb(255 255 255 / .08);
+  --btn-shadow: 0 6px 14px -6px rgb(0 0 0 / .7), inset 0 -3px 0 rgb(0 0 0 / .25), inset 0 1px 0 rgb(255 255 255 / .2);
+  --control-shadow: 0 4px 10px -6px rgb(0 0 0 / .7), inset 0 1px 0 rgb(255 255 255 / .06);
+  --inset-shadow: inset 0 2px 5px rgb(0 0 0 / .45);
+}
+
+/* Surfaces */
+[data-skin="clay"] .rounded-2xl { border-color: transparent; box-shadow: var(--card-shadow); }
+[data-skin="clay"] fieldset.rounded-xl, [data-skin="clay"] details.rounded-xl { border-width: 0; background: color-mix(in oklab, var(--brand) 5%, var(--card)); box-shadow: var(--panel-shadow); }
+[data-skin="clay"] #result.rounded-2xl, [data-skin="clay"] .result-tile { background: var(--brand-soft); box-shadow: var(--result-shadow); }
+[data-skin="clay"] :is(input, select, textarea):not([type="radio"], [type="checkbox"], [type="file"], [type="range"]) {
+  background: var(--input-bg);
+  border-width: 1.5px;
+  border-radius: 14px !important;
+  box-shadow: var(--inset-shadow);
+}
+[data-skin="clay"] :is(button.border-line, button.border-edge, .btn-edge) { border-width: 1.5px; box-shadow: var(--control-shadow); }
+[data-skin="clay"] :is(button, .btn-solid)[class*="bg-brand"]:not([class*="bg-brand-soft"]) { box-shadow: var(--btn-shadow); }
+[data-skin="clay"] h1, [data-skin="clay"] h2 { letter-spacing: -0.02em; }
+[data-skin="clay"] h1 { font-weight: 800; }
+[data-skin="clay"] header img { box-shadow: var(--btn-shadow); }
+[data-skin="clay"] header { border-bottom-color: transparent; }

@@ -1,0 +1,27 @@
+{
+  "name": "text-diff",
+  "type": "module",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "test": "node scripts/test-diff.mjs",
+    "test:network": "node scripts/test-network.mjs",
+    "build:bingemind": "npm test && SITE_MODE=bingemind astro build",
+    "deploy": "npm test && npm run build && node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/deploy.mjs"
+  },
+  "dependencies": {
+    "@astrojs/sitemap": "^3.7.4",
+    "@tailwindcss/vite": "^4.3.3",
+    "astro": "^7.3.8",
+    "tailwindcss": "^4.3.3"
+  },
+  "devDependencies": {
+    "wrangler": "^4.151.2"
+  },
+  "engines": {
+    "node": ">=22.6"
+  }
+}

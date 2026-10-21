@@ -1,0 +1,19 @@
+---
+import Page from '../layouts/Page.astro';
+import site from '../site.config.ts';
+import { url } from '../lib/url.ts';
+---
+<Page title="About" description="About Text Diff Checker, a free tool that compares two texts by line, word or character in your browser. See what it does and how it works.">
+  <p>{site.name} is a free tool that compares two texts and shows what changed. You paste an original and a changed version. It marks the lines, words or characters that differ. It can also hide the noise that is not a real change, such as extra spaces, upper and lower case, or line endings.</p>
+  <h2>Who it is for</h2>
+  <p>Writers and editors who compare drafts. Lawyers and paralegals who compare contract versions. Teachers and students. Translators. Developers and testers who compare configs, logs and output.</p>
+  <h2>How to use it</h2>
+  <p>Paste your texts into the two boxes, or drop a text file on a box. The result updates as you type. Pick Lines, Words or Characters, then pick Split, Unified or Inline view. You can copy the result as a unified diff or as a redline for Word and Google Docs.</p>
+  <h2>How it works</h2>
+  <p>All comparing runs in your browser, in a background thread, so the page stays responsive. Your text is not sent anywhere. We do not ask you to create an account, and there are no usage limits. The tool remembers only your options and your theme choice on your own device.</p>
+  <h2>Who made this</h2>
+  <p>This tool was built by <a href="https://bingemind.com/abhishek-mishra/">Abhishek Mishra</a>, a software development engineer (SDE) at Oqu AI, and is published by Bingemind.</p>
+  <p>Phone and WhatsApp: <a href="tel:+916376068337">+91 63760 68337</a> (<a href="https://wa.me/916376068337" rel="noopener">message on WhatsApp</a>).</p>
+  <h2>Contact</h2>
+  <p>Questions or ideas? Write to <a href={site.contactHref}>{site.contactLabel}</a> or visit the <a href={url('/contact/')}>Contact page</a>.</p>
+</Page>

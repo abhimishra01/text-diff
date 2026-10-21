@@ -1,0 +1,333 @@
+---
+// The text diff tool. Markup is static so the page does not jump; src/lib/ui/tool.js adds the behavior.
+const modes = [
+  { v: 'lines', l: 'Lines' },
+  { v: 'words', l: 'Words' },
+  { v: 'chars', l: 'Characters' },
+];
+const views = [
+  { v: 'split', l: 'Split' },
+  { v: 'unified', l: 'Unified' },
+  { v: 'inline', l: 'Inline' },
+];
+const wsModes = [
+  { v: 'off', l: 'Off' },
+  { v: 'trim', l: 'Ignore leading and trailing' },
+  { v: 'collapse', l: 'Ignore amount of whitespace' },
+  { v: 'all', l: 'Ignore all whitespace' },
+];
+const checks = [
+  { k: 'ignoreCase', l: 'Ignore case' },
+  { k: 'ignoreBlank', l: 'Ignore blank lines' },
+  { k: 'eolEqual', l: 'Treat CRLF, LF and CR as equal' },
+  { k: 'finalNewlineEqual', l: 'Ignore a difference in the final newline' },
+];
+const clean = [
+  { k: 'nfc', l: 'Normalize Unicode (same letter, different form)' },
+  { k: 'quotes', l: 'Treat smart quotes and long dashes as plain' },
+  { k: 'nbspzw', l: 'Treat non-breaking spaces as spaces, ignore zero-width characters' },
+];
+---
+<section id="tool" aria-label="Text diff checker" class="td">
+  <div class="td-bar">
+    <div class="td-line">
+      <div class="td-group" role="group" aria-label="Text actions">
+        <button type="button" id="btn-sample" class="btn">Sample</button>
+        <button type="button" id="btn-swap" class="btn">Swap</button>
+        <button type="button" id="btn-clear" class="btn">Clear</button>
+      </div>
+      <fieldset class="seg">
+        <legend>Compare by</legend>
+        {modes.map((m) => <label><input type="radio" name="mode" value={m.v} checked={m.v === 'lines'} /><span>{m.l}</span></label>)}
+      </fieldset>
+      <fieldset class="seg">
+        <legend>View</legend>
+        {views.map((m) => <label><input type="radio" name="view" value={m.v} checked={m.v === 'split'} /><span>{m.l}</span></label>)}
+      </fieldset>
+      <div class="opts-wrap">
+        <button type="button" id="btn-opts" class="btn" aria-expanded="false" aria-controls="opts-panel">Options <span aria-hidden="true" class="caret">&#9662;</span></button>
+        <div id="opts-panel" class="opts" role="group" aria-label="Compare options" hidden>
+          <div class="opts-col">
+            {checks.slice(0, 2).map((c) => <label class="chk"><input type="checkbox" id={`opt-${c.k}`} /><span>{c.l}</span></label>)}
+            <fieldset class="ws">
+              <legend>Whitespace</legend>
+              {wsModes.map((m) => <label class="rad"><input type="radio" name="ws" value={m.v} checked={m.v === 'off'} /><span>{m.l}</span></label>)}
+            </fieldset>
+          </div>
+          <div class="opts-col">
+            {checks.slice(2).map((c) => <label class="chk"><input type="checkbox" id={`opt-${c.k}`} checked /><span>{c.l}</span></label>)}
+            <fieldset class="ws">
+              <legend>Clean characters</legend>
+              {clean.map((c) => <label class="chk"><input type="checkbox" id={`opt-${c.k}`} /><span>{c.l}</span></label>)}
+            </fieldset>
+            <button type="button" id="opt-reset" class="btn small">Reset options</button>
+          </div>
+        </div>
+      </div>
+      <div class="td-group td-toggles" role="group" aria-label="Display options">
+        <label class="tog"><input type="checkbox" id="tog-hidden" /><span>Show hidden characters</span></label>
+        <label class="tog"><input type="checkbox" id="tog-hide" /><span>Hide unchanged lines</span></label>
+        <label class="tog"><input type="checkbox" id="tog-wrap" checked /><span>Wrap</span></label>
+      </div>
+    </div>
+    <div id="chips" class="chips" hidden aria-label="Active options"></div>
+  </div>
+
+  <div id="panes" class="panes">
+    <div class="pane" id="pane-a">
+      <div class="pane-head">
+        <label for="ta-a" class="pane-title">Original</label>
+        <span class="pane-count" id="cnt-a">0 lines, 0 words, 0 characters</span>
+        <span class="pane-btns">
+          <button type="button" id="open-a" class="btn small">Open file</button>
+          <button type="button" id="clear-a" class="btn small">Clear</button>
+          <input type="file" id="file-a" class="sr-only" tabindex="-1" aria-label="Open a text file for Original" />
+        </span>
+      </div>
+      <div class="pane-body">
+        <div id="gut-a" class="gut" aria-hidden="true">1</div>
+        <textarea id="ta-a" wrap="off" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Paste the original text here, or drop a text file"></textarea>
+      </div>
+    </div>
+    <div class="pane" id="pane-b">
+      <div class="pane-head">
+        <label for="ta-b" class="pane-title">Changed</label>
+        <span class="pane-count" id="cnt-b">0 lines, 0 words, 0 characters</span>
+        <span class="pane-btns">
+          <button type="button" id="open-b" class="btn small">Open file</button>
+          <button type="button" id="clear-b" class="btn small">Clear</button>
+          <input type="file" id="file-b" class="sr-only" tabindex="-1" aria-label="Open a text file for Changed" />
+        </span>
+      </div>
+      <div class="pane-body">
+        <div id="gut-b" class="gut" aria-hidden="true">1</div>
+        <textarea id="ta-b" wrap="off" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Paste the changed text here, or drop a text file"></textarea>
+      </div>
+    </div>
+  </div>
+  <div class="panes-actions">
+    <button type="button" id="btn-compare" class="btn primary">Compare</button>
+    <button type="button" id="btn-panes" class="btn" aria-expanded="true" aria-controls="panes">Hide texts</button>
+    <span id="toast" class="toast" role="status" hidden></span>
+  </div>
+
+  <div id="result" class="result">
+    <div id="sumbar" class="sumbar" data-state="empty">
+      <p id="summary" class="summary" aria-live="polite">Paste or type text in both boxes to compare.</p>
+      <div class="nav" role="group" aria-label="Go to change">
+        <button type="button" id="prev" class="btn icon" aria-label="Previous change (p)" disabled>&#8592;</button>
+        <span id="counter" class="counter">0 of 0</span>
+        <button type="button" id="next" class="btn icon" aria-label="Next change (n)" disabled>&#8594;</button>
+        <button type="button" id="btn-inspect" class="btn small" disabled title="Show the characters in the current change (i)">Inspect</button>
+      </div>
+      <div class="copy" role="group" aria-label="Copy">
+        <button type="button" id="copy-diff" class="btn small" disabled>Copy diff</button>
+        <button type="button" id="copy-redline" class="btn small" disabled>Copy redline</button>
+        <button type="button" id="copy-stats" class="btn small" disabled>Copy stats</button>
+      </div>
+    </div>
+    <div id="notes" class="notes"></div>
+    <p id="phone-note" class="note" hidden>Split view scrolls sideways inside its own box. Unified view fits a phone better.</p>
+    <p id="compact-note" class="note" hidden>Showing a compact view. Copy and export include everything.</p>
+    <div id="progress" class="progress" hidden>
+      <span class="bar" aria-hidden="true"></span>
+      <span>Comparing. This is a large text.</span>
+      <button type="button" id="cancel" class="btn small">Cancel</button>
+    </div>
+    <div id="result-body" class="result-body" data-state="empty">
+      <div id="empty" class="empty">
+        <ol>
+          <li>Paste the original text in the left box.</li>
+          <li>Paste the changed text in the right box.</li>
+          <li>Read the differences here. They update as you type.</li>
+        </ol>
+        <p>Or <button type="button" class="link" id="empty-sample">try the sample</button>.</p>
+      </div>
+      <div id="identical" class="identical" hidden>
+        <p class="ok"><span aria-hidden="true">&#10003;</span> No differences</p>
+        <p id="ignored-head" hidden>What was ignored:</p>
+        <ul id="ignored-list"></ul>
+      </div>
+      <div id="list" class="vlist" tabindex="0" role="region" aria-label="Differences" hidden>
+        <div id="vpad-top"></div>
+        <div id="vrows" class="vrows"></div>
+        <div id="vpad-bottom"></div>
+      </div>
+    </div>
+    <p id="live" class="sr-only" aria-live="polite"></p>
+  </div>
+
+  <div id="inspector" class="inspector" role="dialog" aria-label="Changed characters" tabindex="-1" hidden></div>
+
+  <div class="mobbar" role="group" aria-label="Phone controls">
+    <button type="button" id="m-edit" class="btn">Edit</button>
+    <button type="button" id="m-result" class="btn">Result</button>
+    <button type="button" id="prev-m" class="btn icon" aria-label="Previous change" disabled>&#8592;</button>
+    <span id="counter-m" class="counter">0 of 0</span>
+    <button type="button" id="next-m" class="btn icon" aria-label="Next change" disabled>&#8594;</button>
+  </div>
+</section>
+
+<style is:global>
+  #tool {
+    --del-bg: #fdecea; --del-strong: #f6b9b2; --del-ink: #7a140c; --del-bar: #c4352a;
+    --add-bg: #e5f6ea; --add-strong: #a6dcb8; --add-ink: #0d4f27; --add-bar: #1b8a46;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    position: relative;
+  }
+  :root[data-theme="dark"] #tool {
+    --del-bg: #3a1d1b; --del-strong: #7c2c26; --del-ink: #ffc9c3; --del-bar: #ef7b70;
+    --add-bg: #16301f; --add-strong: #28693f; --add-ink: #b7ecc8; --add-bar: #5ec283;
+  }
+  #tool .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: .35rem;
+    min-height: 44px; padding: 0 .9rem; border: 1px solid var(--edge); border-radius: 10px;
+    background: var(--card); color: var(--ink); font: inherit; font-size: .9375rem; font-weight: 600; cursor: pointer;
+  }
+  #tool .btn:hover:not(:disabled) { border-color: var(--brand-ink); background: var(--brand-soft); }
+  #tool .btn:disabled { opacity: .45; cursor: not-allowed; }
+  #tool .btn.small { min-height: 36px; padding: 0 .7rem; font-size: .875rem; }
+  #tool .btn.icon { width: 44px; padding: 0; font-size: 1.1rem; }
+  #tool .btn.primary { background: var(--brand-ink); color: #fff; border-color: var(--brand-ink); }
+  :root[data-theme="dark"] #tool .btn.primary { color: #0b0d0f; }
+  #tool .btn.primary:hover:not(:disabled) { filter: brightness(1.1); background: var(--brand-ink); }
+  #tool .link { background: none; border: 0; padding: 0; font: inherit; color: var(--brand-ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; min-height: 24px; }
+  #tool .td-bar { margin-bottom: .75rem; }
+  #tool .td-line { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem .9rem; }
+  #tool .td-group { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; }
+  #tool .td-toggles { gap: .2rem .9rem; }
+  #tool fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+  #tool .seg { border: 1px solid var(--edge); border-radius: 10px; background: var(--card); padding: 2px; display: inline-flex; }
+  #tool .seg label { position: relative; display: block; }
+  #tool .seg input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+  #tool .seg span { display: flex; align-items: center; min-height: 40px; padding: 0 .85rem; border-radius: 8px; font-size: .9375rem; font-weight: 600; color: var(--muted); }
+  #tool .seg input:checked + span { background: var(--brand-ink); color: #fff; }
+  :root[data-theme="dark"] #tool .seg input:checked + span { color: #0b0d0f; }
+  #tool .seg input:focus-visible + span { outline: 3px solid var(--brand-ink); outline-offset: 2px; }
+  #tool .seg legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  #tool .tog, #tool .chk, #tool .rad { display: inline-flex; align-items: center; gap: .5rem; min-height: 44px; font-size: .9375rem; cursor: pointer; }
+  #tool .tog input, #tool .chk input, #tool .rad input { width: 20px; height: 20px; accent-color: var(--brand-ink); margin: 0; flex: none; }
+  #tool .opts-wrap { position: relative; }
+  #tool .opts { position: absolute; z-index: 15; left: 0; top: calc(100% + 6px); width: min(640px, 92vw); display: grid; grid-template-columns: 1fr 1fr; gap: .5rem 1.25rem; padding: 1rem; border: 1px solid var(--edge); border-radius: 14px; background: var(--card); box-shadow: 0 18px 40px -16px rgb(0 0 0 / .35); }
+  #tool .opts[hidden] { display: none; }
+  #tool .opts-col { display: flex; flex-direction: column; align-items: flex-start; }
+  #tool .opts legend { font-size: .8125rem; font-weight: 700; color: var(--muted); padding: .35rem 0 0; }
+  #tool .opts .chk, #tool .opts .rad { min-height: 36px; }
+  #tool .chips { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .6rem; }
+  #tool .chips[hidden] { display: none; }
+  #tool .chip { min-height: 32px; padding: 0 .65rem; border: 1px solid var(--edge); border-radius: 999px; background: var(--brand-soft); color: var(--ink); font: inherit; font-size: .8125rem; font-weight: 600; cursor: pointer; }
+  #tool .chip:hover { border-color: var(--brand-ink); }
+
+  #tool .panes { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+  #tool .panes.collapsed .pane-body { display: none; }
+  #tool .pane { border: 1px solid var(--edge); border-radius: 12px; background: var(--card); overflow: hidden; min-width: 0; }
+  #tool .pane.drop { outline: 3px dashed var(--brand-ink); outline-offset: -3px; }
+  #tool .pane-head { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .75rem; padding: .35rem .6rem; border-bottom: 1px solid var(--line); }
+  #tool .pane-title { font-weight: 700; font-size: .9375rem; }
+  #tool .pane-count { font-size: .8125rem; color: var(--muted); font-variant-numeric: tabular-nums; margin-right: auto; }
+  #tool .pane-btns { display: flex; gap: .35rem; }
+  #tool .pane-body { display: flex; height: 220px; resize: vertical; overflow: hidden; min-height: 120px; }
+  #tool .gut, #tool textarea { font: 13.5px/20px var(--mono); padding: 8px 0; tab-size: 4; }
+  #tool .gut { flex: none; width: 3.4em; padding-right: .6em; text-align: right; color: var(--muted); overflow: hidden; white-space: pre; user-select: none; background: var(--paper); border-right: 1px solid var(--line); }
+  #tool textarea { flex: 1; min-width: 0; border: 0; resize: none; background: var(--card); color: var(--ink); padding-left: .6rem; padding-right: .6rem; overflow: auto; outline: none; white-space: pre; }
+  #tool textarea:focus-visible { outline: 3px solid var(--brand-ink); outline-offset: -3px; }
+  #tool textarea::placeholder { color: var(--muted); }
+  #tool .panes-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: .6rem 0 1rem; }
+  #tool .toast { font-size: .875rem; color: var(--ink); background: var(--brand-soft); border: 1px solid var(--edge); border-radius: 8px; padding: .35rem .6rem; }
+  #tool .toast[hidden] { display: none; }
+
+  #tool .result { border: 1px solid var(--edge); border-radius: 12px; background: var(--card); overflow: hidden; }
+  #tool .sumbar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding: .5rem .75rem; border-bottom: 1px solid var(--line); }
+  #tool .summary { margin: 0; font-weight: 600; flex: 1 1 22rem; }
+  #tool .nav { display: flex; align-items: center; gap: .35rem; }
+  #tool .counter { min-width: 4.5rem; text-align: center; font-variant-numeric: tabular-nums; font-size: .9375rem; }
+  #tool .copy { display: flex; gap: .35rem; flex-wrap: wrap; }
+  #tool .notes { display: flex; flex-direction: column; }
+  #tool .note { margin: 0; padding: .4rem .75rem; font-size: .875rem; background: var(--brand-soft); border-bottom: 1px solid var(--line); }
+  #tool .note[hidden] { display: none; }
+  #tool .progress { display: flex; align-items: center; gap: .75rem; padding: .5rem .75rem; border-bottom: 1px solid var(--line); font-size: .9rem; }
+  #tool .progress[hidden] { display: none; }
+  #tool .progress .bar { width: 120px; height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--line) 0 30%, var(--brand-ink) 30% 60%, var(--line) 60%); background-size: 200% 100%; animation: td-slide 1.1s linear infinite; }
+  @keyframes td-slide { from { background-position: 0 0; } to { background-position: -200% 0; } }
+  #tool .empty { padding: 1.25rem 1rem 1.5rem; min-height: 200px; }
+  #tool .empty ol { margin: 0 0 .75rem 1.25rem; padding: 0; list-style: decimal; }
+  #tool .empty li { margin: .25rem 0; }
+  #tool .empty[hidden], #tool .identical[hidden] { display: none; }
+  #tool .identical { padding: 1.25rem 1rem; min-height: 120px; }
+  #tool .identical .ok { margin: 0 0 .5rem; font-size: 1.25rem; font-weight: 700; color: var(--add-ink); }
+  #tool .identical ul { margin: .25rem 0 0 1.25rem; padding: 0; list-style: disc; }
+
+  #tool .vlist { height: clamp(320px, 62vh, 760px); overflow: auto; font: 13.5px/1.55 var(--mono); tab-size: 4; background: var(--card); overscroll-behavior: contain; }
+  #tool .vlist[hidden] { display: none; }
+  #tool .vlist:focus-visible { outline: 3px solid var(--brand-ink); outline-offset: -3px; }
+  #tool .vlist.nowrap .vrows { min-width: calc(var(--maxch, 80) * 1ch * 2 + 14ch); }
+  #tool .vlist.nowrap[data-view="unified"] .vrows, #tool .vlist.nowrap[data-view="inline"] .vrows { min-width: calc(var(--maxch, 80) * 1ch + 14ch); }
+  #tool .vlist.nowrap .row { height: 24px; }
+  #tool .vlist.nowrap .tx { white-space: pre; overflow: hidden; }
+  #tool .row { display: grid; grid-template-columns: 1fr 1fr; min-width: 0; }
+  #tool .row.u, #tool .row.il, #tool .row.fold { display: flex; }
+  #tool .cell { display: flex; min-width: 0; }
+  #tool .vlist[data-view="split"] .vrows { min-width: 100%; }
+  #tool .ln { flex: none; width: 3.6em; padding: 0 .5em 0 0; text-align: right; color: var(--muted); user-select: none; font-variant-numeric: tabular-nums; }
+  #tool .sg { flex: none; width: 1.5em; text-align: center; font-weight: 700; user-select: none; }
+  #tool .tx { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; padding-right: .5rem; }
+  #tool .row.il .tx { padding-left: .75rem; }
+  #tool .row.il .ln { display: none; }
+  #tool .row.u .ln { width: 3em; }
+  #tool .row.chg .cell.a, #tool .row.del .cell.a, #tool .row.u.del { background: var(--del-bg); box-shadow: inset 3px 0 0 var(--del-bar); }
+  #tool .row.chg .cell.b, #tool .row.add .cell.b, #tool .row.u.add { background: var(--add-bg); box-shadow: inset 3px 0 0 var(--add-bar); }
+  #tool .row.il.chg { box-shadow: inset 3px 0 0 var(--edge); background: var(--paper); }
+  #tool .cell.empty { background: repeating-linear-gradient(135deg, transparent 0 6px, var(--line) 6px 7px); }
+  #tool .row.ign { opacity: .6; }
+  #tool .row.cur, #tool .row.cur .cell.a, #tool .row.cur .cell.b { outline: 2px solid var(--brand-ink); outline-offset: -2px; }
+  #tool mark, #tool ins, #tool del { color: inherit; text-decoration-thickness: 1px; border-radius: 3px; padding: 0 1px; cursor: pointer; }
+  #tool mark.m-del, #tool del { background: var(--del-strong); color: var(--del-ink); text-decoration: line-through; }
+  #tool mark.m-ins, #tool ins { background: var(--add-strong); color: var(--add-ink); text-decoration: underline; }
+  #tool mark.m-line { background: none; color: inherit; text-decoration: none; padding: 0; cursor: default; }
+  #tool mark.cur, #tool ins.cur, #tool del.cur { outline: 2px solid var(--brand-ink); outline-offset: 1px; }
+  #tool .row.fold { padding: .25rem 0; background: var(--paper); border-block: 1px dashed var(--line-strong); justify-content: center; }
+  #tool .foldbtn { background: none; border: 0; color: var(--brand-ink); font: inherit; font-size: .8125rem; font-weight: 600; cursor: pointer; padding: .35rem .75rem; min-height: 32px; }
+  #tool .foldbtn:hover { text-decoration: underline; }
+  #tool .more { border: 1px dashed var(--edge); background: var(--paper); color: var(--brand-ink); font: inherit; font-size: .75rem; border-radius: 6px; padding: 0 .4rem; cursor: pointer; margin: 0 .25rem; }
+  #tool .hc { font-size: .85em; }
+  #tool .hc-sp { opacity: .45; }
+  #tool .hc-tab { display: inline-block; min-width: 4ch; opacity: .55; }
+  #tool .hc-eol { opacity: .55; }
+  #tool .hc-box, #tool .hc-chip { font-size: 10px; line-height: 1.3; border: 1px solid var(--edge); border-radius: 4px; padding: 0 3px; margin: 0 1px; background: var(--paper); color: var(--ink); vertical-align: 1px; }
+  #tool .inspector { position: absolute; z-index: 20; width: min(300px, 90vw); padding: .75rem .9rem; border: 1px solid var(--edge); border-radius: 12px; background: var(--card); box-shadow: 0 18px 40px -16px rgb(0 0 0 / .4); font-size: .875rem; }
+  #tool .inspector[hidden] { display: none; }
+  #tool .inspector .h { margin: 0 0 .25rem; font-weight: 700; }
+  #tool .inspector .s { margin: .4rem 0 .1rem; color: var(--muted); font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+  #tool .inspector ul { margin: 0; padding: 0; list-style: none; font-family: var(--mono); font-size: .8125rem; }
+  #tool .inspector li { padding: 1px 0; }
+  #tool .inspector .g { display: inline-block; min-width: 1.4em; text-align: center; background: var(--paper); border-radius: 4px; }
+  #tool .inspector .none { color: var(--muted); font-family: inherit; }
+  #tool .inspector .why { margin: .5rem 0 0; padding-top: .4rem; border-top: 1px solid var(--line); }
+  #tool .inspector .x { position: absolute; right: .35rem; top: .25rem; width: 32px; height: 32px; border: 0; background: none; font-size: 1.25rem; color: var(--muted); cursor: pointer; }
+  #tool .mobbar { display: none; }
+  #tool .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  @media (max-width: 767px) {
+    #tool .panes { grid-template-columns: 1fr; }
+    #tool .pane-body { height: 160px; }
+    #tool .td-line { flex-wrap: nowrap; overflow-x: auto; padding-bottom: .4rem; scrollbar-width: thin; }
+    #tool .td-line > * { flex: none; }
+    #tool .td-toggles { flex-wrap: nowrap; }
+    #tool .opts-wrap { position: static; }
+    #tool .opts { position: fixed; left: 8px; right: 8px; top: auto; bottom: calc(76px + var(--kb, 0px)); width: auto; max-height: 70vh; overflow: auto; grid-template-columns: 1fr; }
+    #tool .copy { width: 100%; }
+    #tool .summary { flex-basis: 100%; }
+    #tool .nav { display: none; }
+    #tool .vlist { height: 60vh; }
+    #tool .vlist[data-view="split"] .vrows { min-width: 640px; }
+    #tool .mobbar { position: fixed; left: 0; right: 0; bottom: var(--kb, 0px); z-index: 25; display: flex; align-items: center; justify-content: center; gap: .4rem; padding: .5rem .6rem calc(.5rem + env(safe-area-inset-bottom)); background: var(--card); border-top: 1px solid var(--edge); }
+    #tool .mobbar .btn { min-height: 44px; }
+    #tool .mobbar .btn:not(.icon) { flex: 1; }
+  }
+  @media print { #tool .mobbar { display: none; } }
+</style>
+
+<script>
+  import '../lib/ui/tool.js';
+  document.getElementById('empty-sample')?.addEventListener('click', () => document.getElementById('btn-sample')?.click());
+</script>
