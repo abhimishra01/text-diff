@@ -74,7 +74,7 @@ function init() {
   // A textarea turns CRLF and CR into LF, and it gets slow past about 1 MB. So the page keeps the exact text here:
   // - an opened file keeps its CR and CRLF until the user edits that box;
   // - a large text lives only here, and the box shows a read-only preview.
-  const LARGE = 600000;
+  const LARGE = 400000;
   const PREVIEW_LINES = 300;
   const raw = { a: null, b: null };
   const large = { a: false, b: false };

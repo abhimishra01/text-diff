@@ -63,6 +63,34 @@ const fill = async (a, b) => { await page.fill('#ta-a', a); await page.fill('#ta
 const settle = async () => { await page.waitForFunction(() => document.getElementById('tool').dataset.busy === '0'); await page.waitForTimeout(80); };
 const summary = () => page.textContent('#summary');
 
+// ---- every internal link, script, image, icon and manifest icon resolves under the base path
+await check('crawl: every internal href and src returns 200', async () => {
+  const htmlFiles = [];
+  const walk = (d) => { for (const f of fs.readdirSync(d)) { const full = path.join(d, f); if (fs.statSync(full).isDirectory()) walk(full); else if (f.endsWith('.html')) htmlFiles.push(full); } };
+  walk(dist);
+  assert.ok(htmlFiles.length >= 5, 'pages found: ' + htmlFiles.length);
+  const origin = new URL(base).origin;
+  const seen = new Set();
+  const bad = [];
+  const get = async (u) => { if (seen.has(u)) return; seen.add(u); const r = await fetch(u); if (r.status !== 200) bad.push(`${r.status} ${u}`); return r; };
+  for (const f of htmlFiles) {
+    const rel = path.relative(dist, f).replace(/index\.html$/, '');
+    const pageUrl = new URL(rel, base).href;
+    const html = fs.readFileSync(f, 'utf8');
+    for (const m of html.matchAll(/(?:href|src)="([^"#]+)(?:#[^"]*)?"/g)) {
+      const v = m[1];
+      if (/^(mailto:|tel:|data:|javascript:)/.test(v)) continue;
+      const u = new URL(v, pageUrl);
+      if (u.origin !== origin) continue; // outside links are not fetched
+      if (!u.pathname.startsWith(BASE)) { bad.push('outside base path: ' + v + ' on ' + pageUrl); continue; }
+      await get(u.href);
+    }
+  }
+  const man = await (await fetch(new URL('site.webmanifest', base))).json();
+  for (const i of man.icons) await get(new URL(i.src, new URL('site.webmanifest', base)).href);
+  assert.deepEqual(bad, []);
+});
+
 // ---- 5.4 privacy: no request carries the text
 await check('privacy: nothing leaves the page', async () => {
   await fill(`one ${MARKER} two\nline two`, `one ${MARKER} three\nline two`);
@@ -260,6 +288,20 @@ await check('hide and show the text boxes, swap, clear one box', async () => {
   assert.equal(await page.inputValue('#ta-a'), '');
   assert.match(await page.textContent('#notes'), /Original is empty/);
 });
+await check('real paste: over the limit into an empty box, and into the preview box', async () => {
+  await page.click('#btn-clear'); await page.waitForTimeout(200);
+  const big = Array.from({ length: 30000 }, (_, i) => 'line ' + i + ' lorem ipsum dolor sit amet').join('\n');
+  await page.evaluate((t) => navigator.clipboard.writeText(t), big);
+  await page.click('#ta-a'); await page.keyboard.press('ControlOrMeta+V'); await page.waitForTimeout(600);
+  assert.ok(await page.locator('#large-a').isVisible(), 'tag after first paste');
+  assert.match(await page.textContent('#cnt-a'), /30,000 lines/);
+  await page.evaluate((t) => navigator.clipboard.writeText(t), big.replace(/line/g, 'LINE'));
+  await page.click('#ta-a'); await page.keyboard.press('ControlOrMeta+V'); await page.waitForTimeout(600);
+  assert.match(await page.inputValue('#ta-a'), /^LINE 0 /);
+  await page.click('#clear-a'); await page.waitForTimeout(200);
+  assert.equal(await page.locator('#large-a').isVisible(), false);
+  await page.fill('#ta-a', 'typing works again'); assert.equal(await page.inputValue('#ta-a'), 'typing works again');
+});
 await check('no console errors or warnings', async () => { assert.deepEqual(consoleProblems, []); });
 
 // ---- layout
@@ -274,6 +316,28 @@ for (const [w, h] of [[320, 700], [390, 844], [820, 900], [1280, 800], [1920, 10
     assert.ok(m.sw <= m.cw, `scrollWidth ${m.sw} > ${m.cw}`);
   });
 }
+await check('phone: every visible button and control is at least 44 px tall', async () => {
+  const p = await ctx.newPage();
+  await p.setViewportSize({ width: 390, height: 844 });
+  await p.goto(base); await p.waitForSelector('#tool');
+  await p.click('#btn-sample'); await p.waitForTimeout(500);
+  await p.check('#tog-hide'); await p.waitForTimeout(300);
+  await p.click('#btn-opts'); await p.waitForTimeout(100);
+  const small = await p.evaluate(() => {
+    const out = [];
+    const root = document.getElementById('tool');
+    for (const el of root.querySelectorAll('button, .seg label, .tog, .chk, .rad, a')) {
+      const r = el.getBoundingClientRect();
+      const cs = getComputedStyle(el);
+      if (r.width === 0 || r.height === 0 || cs.visibility === 'hidden') continue;
+      if (el.closest('[hidden]') || el.closest('.sr-only')) continue;
+      if (r.height < 43.5) out.push((el.id || el.className || el.tagName) + ' ' + Math.round(r.height));
+    }
+    return out;
+  });
+  await p.close();
+  assert.deepEqual(small, []);
+});
 await check('dark mode has no errors', async () => {
   const c2 = await browser.newContext({ colorScheme: 'dark', viewport: { width: 1280, height: 800 } });
   const p = await c2.newPage();

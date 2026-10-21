@@ -32,7 +32,7 @@ npm run test:ui        # browser tests (needs a build, Google Chrome and playwri
 
 - The page keeps only the options and the theme choice in `localStorage` (`bm.textdiff.opts.v1`). It never saves the texts.
 - A textarea turns CRLF and CR into LF. An opened file keeps its exact text in memory so the line ending notes work.
-- Text over 600,000 characters is kept in memory and the box shows a read-only preview. This keeps typing fast.
+- Text over 400,000 characters is kept in memory and the box shows a read-only preview. This keeps typing fast.
 - Set `SITE_MODE=bingemind` for the bingemind.com build. `PAGES_BASE` and `PAGES_SITE` build the GitHub Pages copy (noindex).
 - Libraries: none at run time. The diff engine is our own code.
 

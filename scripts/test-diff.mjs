@@ -199,7 +199,6 @@ check('T23', () => {
 });
 check('T24', () => {
   const r = C('one two three', 'one three four', { mode: 'words' });
-  eq(changes(r), { del: ['two '], add: [' four'] }.del.length === 1 ? changes(r) : null);
   eq(r.stats.wordsRemoved, 1);
   eq(r.stats.wordsAdded, 1);
   eq(r.stats.similarity, 67);

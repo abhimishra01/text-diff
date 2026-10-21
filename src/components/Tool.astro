@@ -36,6 +36,7 @@ const clean = [
         <button type="button" id="btn-swap" class="btn">Swap</button>
         <button type="button" id="btn-clear" class="btn">Clear</button>
       </div>
+      <div class="td-scroll">
       <fieldset class="seg">
         <legend>Compare by</legend>
         {modes.map((m) => <label><input type="radio" name="mode" value={m.v} checked={m.v === 'lines'} /><span>{m.l}</span></label>)}
@@ -73,6 +74,7 @@ const clean = [
         <button type="button" id="btn-compare" class="btn primary">Compare</button>
         <button type="button" id="btn-panes" class="btn" aria-expanded="true" aria-controls="panes">Hide texts</button>
       </div>
+      </div>
     </div>
     <div id="chips" class="chips" hidden aria-label="Active options"></div>
   </div>
@@ -82,7 +84,7 @@ const clean = [
       <div class="pane-head">
         <label for="ta-a" class="pane-title">Original</label>
         <span class="pane-count" id="cnt-a">0 lines, 0 words, 0 characters</span>
-        <span class="large-tag" id="large-a" hidden>Large text. Preview only. Paste or open a file to replace it.</span>
+        <span class="large-tag" id="large-a" hidden>Large text. This box shows a preview and cannot be edited. Paste or open a file to replace it.</span>
         <span class="pane-btns">
           <button type="button" id="open-a" class="btn small">Open file</button>
           <button type="button" id="clear-a" class="btn small">Clear</button>
@@ -91,14 +93,14 @@ const clean = [
       </div>
       <div class="pane-body">
         <div id="gut-a" class="gut" aria-hidden="true">1</div>
-        <textarea id="ta-a" wrap="off" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Paste the original text here, or drop a text file"></textarea>
+        <textarea id="ta-a" name="original" translate="no" wrap="off" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Paste the original text here, or drop a text file"></textarea>
       </div>
     </div>
     <div class="pane" id="pane-b">
       <div class="pane-head">
         <label for="ta-b" class="pane-title">Changed</label>
         <span class="pane-count" id="cnt-b">0 lines, 0 words, 0 characters</span>
-        <span class="large-tag" id="large-b" hidden>Large text. Preview only. Paste or open a file to replace it.</span>
+        <span class="large-tag" id="large-b" hidden>Large text. This box shows a preview and cannot be edited. Paste or open a file to replace it.</span>
         <span class="pane-btns">
           <button type="button" id="open-b" class="btn small">Open file</button>
           <button type="button" id="clear-b" class="btn small">Clear</button>
@@ -107,7 +109,7 @@ const clean = [
       </div>
       <div class="pane-body">
         <div id="gut-b" class="gut" aria-hidden="true">1</div>
-        <textarea id="ta-b" wrap="off" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Paste the changed text here, or drop a text file"></textarea>
+        <textarea id="ta-b" name="changed" translate="no" wrap="off" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="Paste the changed text here, or drop a text file"></textarea>
       </div>
     </div>
   </div>
@@ -153,7 +155,7 @@ const clean = [
         <p id="ignored-head" hidden>What was ignored:</p>
         <ul id="ignored-list"></ul>
       </div>
-      <div id="list" class="vlist" tabindex="0" role="region" aria-label="Differences" hidden>
+      <div id="list" class="vlist" translate="no" tabindex="0" role="region" aria-label="Differences" hidden>
         <div id="vpad-top"></div>
         <div id="vrows" class="vrows"></div>
         <div id="vpad-bottom"></div>
@@ -184,6 +186,7 @@ const clean = [
     --del-bg: #3a1d1b; --del-strong: #7c2c26; --del-ink: #ffc9c3; --del-bar: #ef7b70;
     --add-bg: #16301f; --add-strong: #28693f; --add-ink: #b7ecc8; --add-bar: #5ec283;
   }
+  #tool button, #tool label, #tool .seg input { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   #tool .btn {
     display: inline-flex; align-items: center; justify-content: center; gap: .35rem;
     min-height: 44px; padding: 0 .9rem; border: 1px solid var(--edge); border-radius: 10px;
@@ -199,6 +202,7 @@ const clean = [
   #tool .link { background: none; border: 0; padding: 0; font: inherit; color: var(--brand-ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; min-height: 24px; }
   #tool .td-bar { margin-bottom: .75rem; }
   #tool .td-line { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: .6rem .9rem; }
+  #tool .td-scroll { display: contents; }
   #tool .td-group { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; }
   #tool .td-toggles { gap: .2rem .9rem; }
   #tool .td-right { margin-left: auto; }
@@ -206,7 +210,7 @@ const clean = [
   #tool .seg { position: relative; border: 1px solid var(--edge); border-radius: 10px; background: var(--card); padding: 2px; display: inline-flex; }
   #tool .seg label { position: relative; display: block; }
   #tool .seg input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
-  #tool .seg span { display: flex; align-items: center; min-height: 40px; padding: 0 .85rem; border-radius: 8px; font-size: .9375rem; font-weight: 600; color: var(--muted); }
+  #tool .seg span { display: flex; align-items: center; min-height: 44px; padding: 0 .85rem; border-radius: 8px; font-size: .9375rem; font-weight: 600; color: var(--muted); }
   #tool .seg input:checked + span { background: var(--brand-ink); color: #fff; }
   :root[data-theme="dark"] #tool .seg input:checked + span { color: #0b0d0f; }
   #tool .seg input:focus-visible + span { outline: 3px solid var(--brand-ink); outline-offset: 2px; }
@@ -325,9 +329,14 @@ const clean = [
     #tool .pane-body { height: 160px; }
     #tool .td-right { margin-left: 0; }
     #tool .toast { bottom: calc(84px + var(--kb, 0px)); }
-    #tool .td-line { flex-wrap: nowrap; overflow-x: auto; padding-bottom: .4rem; scrollbar-width: thin; }
-    #tool .td-line > * { flex: none; }
+    #tool .td-line { flex-wrap: wrap; }
+    #tool .td-scroll { display: flex; flex: 1 1 100%; align-items: center; gap: .6rem .9rem; overflow-x: auto; padding-bottom: .4rem; scrollbar-width: thin; }
+    #tool .td-scroll > * { flex: none; }
     #tool .td-toggles { flex-wrap: nowrap; }
+    #tool .btn.small, #tool .chip, #tool .foldbtn, #tool .more { min-height: 44px; }
+    #tool .link { min-height: 44px; display: inline-flex; align-items: center; padding: 0 .25rem; }
+    #tool .opts .chk, #tool .opts .rad { min-height: 44px; }
+    #tool .inspector .x { width: 44px; height: 44px; right: 0; top: 0; }
     #tool .opts-wrap { position: static; }
     #tool .opts { position: fixed; left: 8px; right: 8px; top: auto; bottom: calc(76px + var(--kb, 0px)); width: auto; max-height: 70vh; overflow: auto; grid-template-columns: 1fr; }
     #tool .copy { width: 100%; }
