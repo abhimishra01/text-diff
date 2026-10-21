@@ -196,10 +196,40 @@ export function graphemeTokens(text) {
   return { s, e, k };
 }
 
-/** Count word-like tokens in a text. */
+const WORD_ONE = new RegExp(WORD_CLASS, 'u');
+const wordCache = new Map();
+function isWordCp(cp) {
+  if (cp < 128) return (cp >= 48 && cp <= 57) || (cp >= 65 && cp <= 90) || (cp >= 97 && cp <= 122) || cp === 95;
+  let v = wordCache.get(cp);
+  if (v === undefined) {
+    v = WORD_ONE.test(String.fromCodePoint(cp));
+    if (wordCache.size < 5000) wordCache.set(cp, v);
+  }
+  return v;
+}
+
+/** Count word-like tokens in a text. Same rules as wordTokens, without building the token list. */
 export function countWords(text) {
-  const t = wordTokens(text);
+  if (hasSegmenter && SEGMENTER_SCRIPTS.test(text)) {
+    const t = wordTokens(text);
+    let n = 0;
+    for (let i = 0; i < t.k.length; i++) if (t.k[i] === K_WORD) n++;
+    return n;
+  }
   let n = 0;
-  for (let i = 0; i < t.k.length; i++) if (t.k[i] === K_WORD) n++;
+  let inWord = false;
+  const len = text.length;
+  for (let i = 0; i < len; i++) {
+    let cp = text.charCodeAt(i);
+    let step = 1;
+    if (cp >= 0xd800 && cp <= 0xdbff && i + 1 < len) { cp = text.codePointAt(i); step = 2; }
+    if (isWordCp(cp)) {
+      if (!inWord) { n++; inWord = true; }
+    } else if (inWord && (cp === 39 || cp === 0x2019) && i + 1 < len) {
+      const nx = text.codePointAt(i + 1);
+      if (!isWordCp(nx)) inWord = false;
+    } else inWord = false;
+    i += step - 1;
+  }
   return n;
 }

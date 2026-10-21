@@ -41,7 +41,7 @@ export function fragHtml(text, hidden) {
  */
 export function rangesHtml(text, ranges, hidden, expandKey, expanded, ci0) {
   let out = '';
-  for (const [s, e, p, kind, gi] of ranges) {
+  for (const [s, e, p, kind, gi, small] of ranges) {
     const part = text.slice(s, e);
     if (p < 0) {
       if (part.length > LONG && !expanded) {
@@ -52,24 +52,31 @@ export function rangesHtml(text, ranges, hidden, expandKey, expanded, ci0) {
       } else out += fragHtml(part, hidden);
     } else {
       const ci = ci0 >= 0 ? ` data-ci="${ci0 + gi}"` : '';
-      out += `<mark class="m-${kind}" data-p="${p}"${ci}>${fragHtml(part, hidden) || '​'}</mark>`;
+      out += `<mark class="m-${kind}${small ? ' can' : ''}" data-p="${p}"${ci}>${fragHtml(part, hidden) || '​'}</mark>`;
     }
   }
   return out;
 }
 
 /** Ranges for one side from a row's segs. side: 'a' | 'b'. */
-export function sideRanges(segs, side) {
+export function sideRanges(segs, side, row) {
   const out = [];
   let gi = -1;
   let inGroup = false;
   segs.forEach((p, i) => {
     if (p[0] === 0) { inGroup = false; const s = side === 'a' ? p[1] : p[3]; const e = side === 'a' ? p[2] : p[4]; if (e > s) out.push([s, e, -1, null, 0]); return; }
     if (!inGroup) { gi++; inGroup = true; }
-    if (side === 'a' && p[0] === 1 && p[2] > p[1]) out.push([p[1], p[2], i, 'del', gi]);
-    if (side === 'b' && p[0] === 2 && p[4] > p[3]) out.push([p[3], p[4], i, 'ins', gi]);
+    if (side === 'a' && p[0] === 1 && p[2] > p[1]) out.push([p[1], p[2], i, 'del', gi, isSmall(row, i)]);
+    if (side === 'b' && p[0] === 2 && p[4] > p[3]) out.push([p[3], p[4], i, 'ins', gi, isSmall(row, i)]);
   });
   return out;
+}
+
+/** A change of 1 to 3 characters can be inspected. */
+export function isSmall(row, i) {
+  const g = groupTexts(row, i);
+  if (!g || (!g.x && !g.y)) return false;
+  return Array.from(g.x).length <= 3 && Array.from(g.y).length <= 3;
 }
 
 /** Number of change groups in a row. */
@@ -89,7 +96,7 @@ const plain = (text) => (text.length ? [[0, text.length, -1, null, 0]] : []);
 function sideHtml(row, side, hidden, key, expanded, ci0) {
   const text = side === 'a' ? row.at : row.bt;
   if (text == null) return '';
-  if (row.segs) return rangesHtml(text, sideRanges(row.segs, side), hidden, key, expanded, ci0);
+  if (row.segs) return rangesHtml(text, sideRanges(row.segs, side, row), hidden, key, expanded, ci0);
   // whole line removed or added
   return `<mark class="m-${side === 'a' ? 'del' : 'ins'} m-line" data-p="-1">${rangesHtml(text, plain(text), hidden, key, expanded, -1) || '​'}</mark>`;
 }
@@ -234,8 +241,9 @@ export function entryHtml(res, e, idx, view, hidden, expanded) {
           if (p[0] === 0) { inGroup = false; inner += fragHtml(r.at.slice(p[1], p[2]), hidden); return; }
           if (!inGroup) { gi++; inGroup = true; }
           const ca = e.ci0 >= 0 ? ` data-ci="${e.ci0 + gi}"` : '';
-          if (p[0] === 1) inner += `<del data-p="${i}"${ca}>${fragHtml(r.at.slice(p[1], p[2]), hidden) || '​'}</del>`;
-          else inner += `<ins data-p="${i}"${ca}>${fragHtml(r.bt.slice(p[3], p[4]), hidden) || '​'}</ins>`;
+          const can = isSmall(r, i) ? ' class="can"' : '';
+          if (p[0] === 1) inner += `<del${can} data-p="${i}"${ca}>${fragHtml(r.at.slice(p[1], p[2]), hidden) || '​'}</del>`;
+          else inner += `<ins${can} data-p="${i}"${ca}>${fragHtml(r.bt.slice(p[3], p[4]), hidden) || '​'}</ins>`;
         });
       } else if (r.at != null && r.bt == null) inner = `<del data-p="-1">${fragHtml(r.at, hidden) || '​'}</del>`;
       else inner = `<ins data-p="-1">${fragHtml(r.bt, hidden) || '​'}</ins>`;

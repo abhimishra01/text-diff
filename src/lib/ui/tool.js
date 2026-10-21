@@ -71,9 +71,18 @@ function init() {
   const phoneNote = $('phone-note');
   const panes = $('panes');
 
-  // A textarea turns CRLF and CR into LF. An opened file keeps its exact text here until the user edits that box.
+  // A textarea turns CRLF and CR into LF, and it gets slow past about 1 MB. So the page keeps the exact text here:
+  // - an opened file keeps its CR and CRLF until the user edits that box;
+  // - a large text lives only here, and the box shows a read-only preview.
+  const LARGE = 600000;
+  const PREVIEW_LINES = 300;
   const raw = { a: null, b: null };
-  const textOf = (side) => { const ta = side === 'a' ? taA : taB; return raw[side] !== null && raw[side].replace(/\r\n|\r/g, '\n') === ta.value ? raw[side] : ta.value; };
+  const large = { a: false, b: false };
+  const textOf = (side) => {
+    if (large[side]) return raw[side];
+    const ta = side === 'a' ? taA : taB;
+    return raw[side] !== null && raw[side].replace(/\r\n|\r/g, '\n') === ta.value ? raw[side] : ta.value;
+  };
 
   // ---- helpers
   const say = (msg) => {
@@ -133,13 +142,31 @@ function init() {
   };
 
   // ---- panes
-  const countLines = (s) => (s === '' ? 0 : (s.match(/\r\n|\r|\n/g) || []).length + 1);
+  // One pass over the text: lines, words and characters, without making big arrays.
+  function countText(v) {
+    const n = v.length;
+    if (n === 0) return { lines: 0, words: 0, chars: 0 };
+    let lines = 1;
+    let words = 0;
+    let inWord = false;
+    for (let i = 0; i < n; i++) {
+      const c = v.charCodeAt(i);
+      if (c === 10) lines++;
+      else if (c === 13) { if (v.charCodeAt(i + 1) !== 10) lines++; }
+      const space = c === 32 || (c >= 9 && c <= 13) || c === 160 || c === 0x2028 || c === 0x2029 || c === 0x3000 || (c >= 0x2000 && c <= 0x200a) || c === 0x202f || c === 0xfeff;
+      if (space) inWord = false;
+      else if (!inWord) { inWord = true; words++; }
+    }
+    return { lines, words, chars: n };
+  }
   const gutterPending = new Map();
   function updateGutter(ta, gut) {
     if (gutterPending.has(gut)) return;
     gutterPending.set(gut, requestAnimationFrame(() => {
       gutterPending.delete(gut);
-      const n = Math.max(1, countLines(ta.value));
+      const v = ta.value;
+      let n = 1;
+      for (let i = 0; i < v.length; i++) if (v.charCodeAt(i) === 10) n++;
       if (gut.dataset.n !== String(n)) {
         gut.dataset.n = String(n);
         let s = '';
@@ -153,21 +180,53 @@ function init() {
   function updateCounts() {
     clearTimeout(countTimer);
     countTimer = setTimeout(() => {
-      for (const [ta, id] of [[taA, 'cnt-a'], [taB, 'cnt-b']]) {
-        const v = ta.value;
-        const words = v.trim() === '' ? 0 : (v.match(/\S+/g) || []).length;
-        $(id).textContent = `${countLines(v).toLocaleString('en-US')} lines, ${words.toLocaleString('en-US')} words, ${v.length.toLocaleString('en-US')} characters`;
+      for (const [side, id] of [['a', 'cnt-a'], ['b', 'cnt-b']]) {
+        const c = countText(textOf(side));
+        $(id).textContent = `${c.lines.toLocaleString('en-US')} lines, ${c.words.toLocaleString('en-US')} words, ${c.chars.toLocaleString('en-US')} characters`;
+        $('pane-' + side).classList.toggle('is-large', large[side]);
+        $('large-' + side).hidden = !large[side];
       }
     }, 120);
   }
-  for (const [ta, gut] of [[taA, gutA], [taB, gutB]]) {
-    ta.addEventListener('input', () => { updateGutter(ta, gut); updateCounts(); schedule(300); });
-    ta.addEventListener('paste', () => { setTimeout(() => { updateGutter(ta, gut); updateCounts(); runCompare(); }, 0); });
+  function leaveLarge(side) {
+    if (!large[side]) return;
+    const ta = side === 'a' ? taA : taB;
+    large[side] = false;
+    raw[side] = null;
+    ta.readOnly = false;
+    ta.value = '';
+  }
+  for (const [side, ta, gut] of [['a', taA, gutA], ['b', taB, gutB]]) {
+    ta.addEventListener('input', () => { raw[side] = null; updateGutter(ta, gut); updateCounts(); schedule(300); });
+    ta.addEventListener('paste', (e) => {
+      const clip = e.clipboardData && e.clipboardData.getData('text/plain');
+      if (clip && clip.length > LARGE) {
+        // Too big for a text box. Keep it in memory and show a preview.
+        e.preventDefault();
+        setText(ta, gut, clip);
+        runCompare();
+        return;
+      }
+      if (large[side]) leaveLarge(side);
+      setTimeout(() => { raw[side] = null; updateGutter(ta, gut); updateCounts(); runCompare(); }, 0);
+    });
     ta.addEventListener('scroll', () => { gut.scrollTop = ta.scrollTop; });
   }
   function setText(ta, gut, value) {
-    ta.value = value;
-    raw[ta === taA ? 'a' : 'b'] = value;
+    const side = ta === taA ? 'a' : 'b';
+    raw[side] = value;
+    if (value.length > LARGE) {
+      large[side] = true;
+      let end = 0;
+      let lines = 0;
+      while (lines < PREVIEW_LINES && end >= 0) { end = value.indexOf('\n', end + 1); lines++; }
+      ta.value = value.slice(0, end < 0 || end > 20000 ? 20000 : end).replace(/\r\n|\r/g, '\n');
+      ta.readOnly = true;
+    } else {
+      large[side] = false;
+      ta.readOnly = false;
+      ta.value = value;
+    }
     updateGutter(ta, gut);
     updateCounts();
   }
@@ -201,7 +260,7 @@ function init() {
     else if (bytes[0] === 0xFE && bytes[1] === 0xFF) enc = 'utf-16be';
     else if (looksBinary(bytes)) { say(BINARY_MSG); return; }
     const text = new TextDecoder(enc, { ignoreBOM: true }).decode(bytes);
-    setText(ta, gut, text.replace(/^﻿(?=[﻿])/, ''));
+    setText(ta, gut, text);
     say(`${label}: opened ${file.name}.`);
     runCompare();
   }
@@ -279,12 +338,17 @@ function init() {
     const show = open ?? optsPanel.hidden;
     optsPanel.hidden = !show;
     btnOpts.setAttribute('aria-expanded', String(show));
-    if (show) { const first = optsPanel.querySelector('input'); if (first) first.focus(); }
+    if (show) {
+      optsPanel.style.left = '0px';
+      const r = optsPanel.getBoundingClientRect();
+      if (r.right > window.innerWidth - 8 && window.innerWidth > 767) optsPanel.style.left = (window.innerWidth - 8 - r.right) + 'px';
+      const first = optsPanel.querySelector('input'); if (first) first.focus();
+    }
   }
   btnOpts.addEventListener('click', () => toggleOpts());
   document.addEventListener('click', (e) => {
     if (!optsPanel.hidden && !optsPanel.contains(e.target) && !btnOpts.contains(e.target)) toggleOpts(false);
-    if (!inspector.hidden && !inspector.contains(e.target) && !e.target.closest('mark, ins, del')) closeInspector();
+    if (!inspector.hidden && !inspector.contains(e.target) && !e.target.closest('mark.can, ins.can, del.can')) closeInspector();
   });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
@@ -350,6 +414,12 @@ function init() {
     } else {
       summary.textContent = `${plural(s.changes, 'change')}. ${plural(s.wordsAdded, 'word')} added, ${s.wordsRemoved.toLocaleString('en-US')} removed. Similarity ${s.similarity} percent.`;
     }
+    const sl = $('stats-line');
+    if (res.state === 'changed') {
+      const n = (v) => v.toLocaleString('en-US');
+      sl.textContent = `Lines: ${n(s.linesAdded)} added, ${n(s.linesRemoved)} removed, ${n(s.linesChanged)} changed. Characters: ${n(s.charsAdded)} added, ${n(s.charsRemoved)} removed.`;
+      sl.hidden = false;
+    } else sl.hidden = true;
     for (const n of res.notes) {
       const el = document.createElement('p');
       el.className = 'note';
@@ -510,9 +580,7 @@ function init() {
       const lr = list.getBoundingClientRect();
       if (r.top < lr.top || r.bottom > lr.bottom) list.scrollTop += r.top - lr.top - lr.height / 3;
     }
-    const mk = rowsEl.querySelector(`mark[data-ci="${state.cur}"], ins[data-ci="${state.cur}"], del[data-ci="${state.cur}"]`);
     $('live').textContent = `Change ${state.cur + 1} of ${total}.`;
-    void mk;
   }
   const next = () => goto(state.cur + 1);
   const prev = () => goto(state.cur < 0 ? -1 : state.cur - 1);
@@ -535,7 +603,7 @@ function init() {
     if (fold) { state.folds.add(Number(fold.dataset.fold)); rebuild(false); return; }
     const more = e.target.closest('[data-more]');
     if (more) { state.expanded.add(Number(more.dataset.more)); relayout(); return; }
-    const m = e.target.closest('mark, ins, del');
+    const m = e.target.closest('mark.can, ins.can, del.can');
     if (m) inspectElement(m);
   });
 
@@ -574,10 +642,10 @@ function init() {
     inspector.focus();
   }
   function inspectCurrent() {
-    const el = rowsEl.querySelector(`mark[data-ci="${state.cur}"], ins[data-ci="${state.cur}"], del[data-ci="${state.cur}"]`)
-      || (state.cur >= 0 && rowsEl.querySelector(`[data-ci="${state.cur}"] mark, [data-ci="${state.cur}"] ins, [data-ci="${state.cur}"] del`));
+    const n = state.cur;
+    const el = n >= 0 && rowsEl.querySelector(`.can[data-ci="${n}"], [data-ci="${n}"] .can`);
     if (el) inspectElement(el);
-    else say('Pick a change with the arrows first. The card shows changes of 1 to 3 characters.');
+    else say(n < 0 ? 'Pick a change with the arrows first.' : 'This change is longer than 3 characters. The card shows changes of 1 to 3 characters.');
   }
   $('btn-inspect').addEventListener('click', inspectCurrent);
 

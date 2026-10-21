@@ -18,18 +18,26 @@ function pushRun(out, t, a, b, n) {
   out.push({ t, a, b, n });
 }
 
-/** Plain Myers on a[aS..aE) and b[bS..bE). Returns an array of runs, or null if cost passes maxD or the budget. */
+/**
+ * Plain Myers on a[aS..aE) and b[bS..bE). Returns { runs, done: true } when it reaches the end.
+ * If the cost passes maxD, it returns { runs, done: false, x, y }: a valid script for the first x items of a and
+ * y items of b, ending at the furthest point reached. The caller continues from there.
+ * Returns null only when the work budget is gone.
+ */
 function myers(a, aS, aE, b, bS, bE, maxD, state) {
   const N = aE - aS;
   const M = bE - bS;
-  if (N === 0 && M === 0) return [];
-  if (N === 0) return [{ t: ADD, a: aS, b: bS, n: M }];
-  if (M === 0) return [{ t: DEL, a: aS, b: bS, n: N }];
+  if (N === 0 && M === 0) return { runs: [], done: true };
+  if (N === 0) return { runs: [{ t: ADD, a: aS, b: bS, n: M }], done: true };
+  if (M === 0) return { runs: [{ t: DEL, a: aS, b: bS, n: N }], done: true };
   const cap = Math.min(maxD, N + M);
   const off = cap + 1;
   const V = new Int32Array(2 * cap + 3);
   const trace = [];
   let found = -1;
+  let endX = N;
+  let endY = M;
+  let partial = false;
   for (let d = 0; d <= cap && found < 0; d++) {
     for (let k = -d; k <= d; k += 2) {
       let x;
@@ -45,12 +53,28 @@ function myers(a, aS, aE, b, bS, bE, maxD, state) {
     if (found >= 0) break;
     if (state.budget < 0) return null;
     trace.push(V.slice(off - d, off + d + 1));
+    if (d === cap) {
+      // Too costly: stop at the furthest point reached and let the caller go on from there.
+      let best = -Infinity;
+      let bk = 0;
+      for (let k = -d; k <= d; k += 2) {
+        const x = V[off + k];
+        const y = x - k;
+        if (x > N || y > M || y < 0) continue;
+        const score = x + y - Math.abs(k) * 0.01;
+        if (score > best) { best = score; bk = k; }
+      }
+      endX = V[off + bk];
+      endY = endX - bk;
+      found = d;
+      partial = true;
+    }
   }
   if (found < 0) return null;
-  // Backtrack.
+  // Backtrack from (endX, endY).
   const rev = [];
-  let x = N;
-  let y = M;
+  let x = endX;
+  let y = endY;
   for (let d = found; d > 0; d--) {
     const k = x - y;
     const prev = trace[d - 1]; // covers k in [-(d-1), d-1], index k + (d-1)
@@ -60,9 +84,8 @@ function myers(a, aS, aE, b, bS, bE, maxD, state) {
     else prevK = k - 1;
     const prevX = prev[pOff + prevK];
     const prevY = prevX - prevK;
-    // snake from the edit point to (x, y)
-    let sx = prevK === k + 1 ? prevX : prevX + 1; // after the edit
-    let sy = sx - k;
+    const sx = prevK === k + 1 ? prevX : prevX + 1; // after the edit
+    const sy = sx - k;
     const n = x - sx;
     if (n > 0) rev.push({ t: EQ, a: aS + sx, b: bS + sy, n });
     if (prevK === k + 1) rev.push({ t: ADD, a: aS + prevX, b: bS + prevY, n: 1 });
@@ -71,12 +94,12 @@ function myers(a, aS, aE, b, bS, bE, maxD, state) {
     y = prevY;
   }
   if (x > 0) rev.push({ t: EQ, a: aS, b: bS, n: x });
-  const out = [];
+  const runs = [];
   for (let i = rev.length - 1; i >= 0; i--) {
     const r = rev[i];
-    pushRun(out, r.t, r.a, r.b, r.n);
+    pushRun(runs, r.t, r.a, r.b, r.n);
   }
-  return out;
+  return partial ? { runs, done: false, x: endX, y: endY } : { runs, done: true };
 }
 
 /** Longest increasing subsequence of values; returns indices into the input. */
@@ -127,41 +150,60 @@ function uniqueAnchors(a, aS, aE, b, bS, bE) {
 }
 
 function diffRange(a, aS, aE, b, bS, bE, o, state, out, depth) {
-  // trim common prefix and suffix
-  let ps = 0;
-  while (aS + ps < aE && bS + ps < bE && a[aS + ps] === b[bS + ps]) ps++;
-  if (ps) pushRun(out, EQ, aS, bS, ps);
-  aS += ps; bS += ps;
-  let ss = 0;
-  while (aE - ss > aS && bE - ss > bS && a[aE - ss - 1] === b[bE - ss - 1]) ss++;
-  const tailA = aE - ss;
-  const tailB = bE - ss;
-  aE = tailA; bE = tailB;
-  if (aS === aE && bS === bE) { /* nothing in the middle */ }
-  else if (aS === aE) pushRun(out, ADD, aS, bS, bE - bS);
-  else if (bS === bE) pushRun(out, DEL, aS, bS, aE - aS);
-  else {
+  const tails = []; // equal suffixes cut off on the way, pushed last, innermost first
+  const finish = () => { for (let i = tails.length - 1; i >= 0; i--) pushRun(out, EQ, tails[i][0], tails[i][1], tails[i][2]); };
+  for (;;) {
+    // trim common prefix and suffix
+    let ps = 0;
+    while (aS + ps < aE && bS + ps < bE && a[aS + ps] === b[bS + ps]) ps++;
+    if (ps) pushRun(out, EQ, aS, bS, ps);
+    aS += ps; bS += ps;
+    let ss = 0;
+    while (aE - ss > aS && bE - ss > bS && a[aE - ss - 1] === b[bE - ss - 1]) ss++;
+    const tailA = aE - ss;
+    const tailB = bE - ss;
+    aE = tailA; bE = tailB;
+    if (ss) tails.push([tailA, tailB, ss]);
+    const tail = finish;
+    if (aS === aE && bS === bE) { tail(); return; }
+    if (aS === aE) { pushRun(out, ADD, aS, bS, bE - bS); tail(); return; }
+    if (bS === bE) { pushRun(out, DEL, aS, bS, aE - aS); tail(); return; }
     const res = myers(a, aS, aE, b, bS, bE, o.maxD, state);
-    if (res) { for (const r of res) pushRun(out, r.t, r.a, r.b, r.n); }
-    else {
-      state.approximate = true;
-      const anchors = depth < 6 && state.budget > 0 ? uniqueAnchors(a, aS, aE, b, bS, bE) : [];
-      if (anchors.length === 0) {
+    if (res && res.done) { for (const r of res.runs) pushRun(out, r.t, r.a, r.b, r.n); tail(); return; }
+    state.approximate = true;
+    // Too costly. Lines that are unique on both sides make good anchors.
+    const anchors = res && depth < 6 ? uniqueAnchors(a, aS, aE, b, bS, bE) : [];
+    if (anchors.length > 0) {
+      let pa = aS;
+      let pb = bS;
+      for (const [ia, ib] of anchors) {
+        diffRange(a, pa, ia, b, pb, ib, o, state, out, depth + 1);
+        pushRun(out, EQ, ia, ib, 1);
+        pa = ia + 1; pb = ib + 1;
+      }
+      diffRange(a, pa, aE, b, pb, bE, o, state, out, depth + 1);
+      tail();
+      return;
+    }
+    if (res) {
+      // No anchors: keep the part Myers solved, then carry on after it.
+      for (const r of res.runs) pushRun(out, r.t, r.a, r.b, r.n);
+      aS += res.x; bS += res.y;
+      depth++;
+      if (res.x + res.y === 0) { // no progress: replace the rest
         pushRun(out, DEL, aS, bS, aE - aS);
         pushRun(out, ADD, aE, bS, bE - bS);
-      } else {
-        let pa = aS;
-        let pb = bS;
-        for (const [ia, ib] of anchors) {
-          diffRange(a, pa, ia, b, pb, ib, o, state, out, depth + 1);
-          pushRun(out, EQ, ia, ib, 1);
-          pa = ia + 1; pb = ib + 1;
-        }
-        diffRange(a, pa, aE, b, pb, bE, o, state, out, depth + 1);
+        tail();
+        return;
       }
+      continue;
     }
+    // Work budget is gone: replace what is left.
+    pushRun(out, DEL, aS, bS, aE - aS);
+    pushRun(out, ADD, aE, bS, bE - bS);
+    tail();
+    return;
   }
-  if (ss) pushRun(out, EQ, tailA, tailB, ss);
 }
 
 /**
