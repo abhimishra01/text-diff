@@ -1,0 +1,14 @@
+{
+  "name": "Text Diff Checker",
+  "short_name": "Text Diff",
+  "description": "Compare two texts by line, word or character. Free and private.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f7f5",
+  "theme_color": "#475569",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

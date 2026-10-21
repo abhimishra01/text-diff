@@ -197,7 +197,7 @@ export function entryHtml(res, e, idx, view, hidden, expanded) {
       const t = fragHtml(text, hidden) || '​';
       if (view === 'inline') return `<div class="row il ign" title="Ignored blank line"><span class="tx">${t}</span></div>`;
       if (view === 'unified') return `<div class="row u ign" title="Ignored blank line"><span class="ln">${e.side === 'a' ? e.i + 1 : ''}</span><span class="ln">${e.side === 'b' ? e.i + 1 : ''}</span><span class="sg" aria-hidden="true"> </span><span class="tx">${t}</span></div>`;
-      return `<div class="row ign" title="Ignored blank line"><div class="cell ${e.side === 'a' ? '' : 'empty'}"><span class="ln">${e.side === 'a' ? e.i + 1 : ''}</span><span class="tx">${e.side === 'a' ? t : ''}</span></div><div class="cell ${e.side === 'b' ? '' : 'empty'}"><span class="ln">${e.side === 'b' ? e.i + 1 : ''}</span><span class="tx">${e.side === 'b' ? t : ''}</span></div></div>`;
+      return `<div class="row ign" title="Ignored blank line"><div class="cell ${e.side === 'a' ? '' : 'none'}"><span class="ln">${e.side === 'a' ? e.i + 1 : ''}</span><span class="tx">${e.side === 'a' ? t : ''}</span></div><div class="cell ${e.side === 'b' ? '' : 'none'}"><span class="ln">${e.side === 'b' ? e.i + 1 : ''}</span><span class="tx">${e.side === 'b' ? t : ''}</span></div></div>`;
     }
     case 'x': {
       const r = e.row;
@@ -210,8 +210,8 @@ export function entryHtml(res, e, idx, view, hidden, expanded) {
     case 'row': {
       const r = e.row;
       const ci = e.ci >= 0 ? ` data-ci="${e.ci}"` : '';
-      const ca = r.at == null ? 'cell empty' : 'cell a';
-      const cb = r.bt == null ? 'cell empty' : 'cell b';
+      const ca = r.at == null ? 'cell none' : 'cell a';
+      const cb = r.bt == null ? 'cell none' : 'cell b';
       const cls = r.at != null && r.bt != null ? 'chg' : r.at != null ? 'del' : 'add';
       return `<div class="row ${cls}"${ci} data-e="${idx}" role="group" aria-label="${esc(ariaFor(r))}">`
         + `<div class="${ca}"><span class="ln">${lnText(r.al, r.an)}</span><span class="sg" aria-hidden="true">${r.at != null ? '−' : ''}</span><span class="tx">${sideHtml(r, 'a', hidden, idx, exp, e.ci0)}</span></div>`

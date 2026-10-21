@@ -50,11 +50,10 @@ function wordSet(line, o) {
   const set = new Map();
   for (let i = 0; i < t.k.length; i++) {
     if (t.k[i] !== K_WORD) continue;
-    let w = line.slice(t.s[i], t.e[i]);
-    if (o.ignoreCase) w = w.toLowerCase();
+    const w = line.slice(t.s[i], t.e[i]).toLowerCase();
     set.set(w, (set.get(w) || 0) + 1);
   }
-  if (set.size === 0) for (const ch of line) if (!/\s/.test(ch)) set.set(ch, (set.get(ch) || 0) + 1);
+  if (set.size === 0) for (const ch of line.toLowerCase()) if (!/\s/.test(ch)) set.set(ch, (set.get(ch) || 0) + 1);
   return set;
 }
 function dice(x, y) {

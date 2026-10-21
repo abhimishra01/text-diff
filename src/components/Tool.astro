@@ -69,6 +69,10 @@ const clean = [
         <label class="tog"><input type="checkbox" id="tog-hide" /><span>Hide unchanged lines</span></label>
         <label class="tog"><input type="checkbox" id="tog-wrap" checked /><span>Wrap</span></label>
       </div>
+      <div class="td-group td-right">
+        <button type="button" id="btn-compare" class="btn primary">Compare</button>
+        <button type="button" id="btn-panes" class="btn" aria-expanded="true" aria-controls="panes">Hide texts</button>
+      </div>
     </div>
     <div id="chips" class="chips" hidden aria-label="Active options"></div>
   </div>
@@ -105,11 +109,7 @@ const clean = [
       </div>
     </div>
   </div>
-  <div class="panes-actions">
-    <button type="button" id="btn-compare" class="btn primary">Compare</button>
-    <button type="button" id="btn-panes" class="btn" aria-expanded="true" aria-controls="panes">Hide texts</button>
-    <span id="toast" class="toast" role="status" hidden></span>
-  </div>
+  <span id="toast" class="toast" role="status" hidden></span>
 
   <div id="result" class="result">
     <div id="sumbar" class="sumbar" data-state="empty">
@@ -196,6 +196,7 @@ const clean = [
   #tool .td-line { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem .9rem; }
   #tool .td-group { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; }
   #tool .td-toggles { gap: .2rem .9rem; }
+  #tool .td-right { margin-left: auto; }
   #tool fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
   #tool .seg { border: 1px solid var(--edge); border-radius: 10px; background: var(--card); padding: 2px; display: inline-flex; }
   #tool .seg label { position: relative; display: block; }
@@ -218,7 +219,7 @@ const clean = [
   #tool .chip { min-height: 32px; padding: 0 .65rem; border: 1px solid var(--edge); border-radius: 999px; background: var(--brand-soft); color: var(--ink); font: inherit; font-size: .8125rem; font-weight: 600; cursor: pointer; }
   #tool .chip:hover { border-color: var(--brand-ink); }
 
-  #tool .panes { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+  #tool .panes { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-bottom: .75rem; }
   #tool .panes.collapsed .pane-body { display: none; }
   #tool .pane { border: 1px solid var(--edge); border-radius: 12px; background: var(--card); overflow: hidden; min-width: 0; }
   #tool .pane.drop { outline: 3px dashed var(--brand-ink); outline-offset: -3px; }
@@ -226,14 +227,13 @@ const clean = [
   #tool .pane-title { font-weight: 700; font-size: .9375rem; }
   #tool .pane-count { font-size: .8125rem; color: var(--muted); font-variant-numeric: tabular-nums; margin-right: auto; }
   #tool .pane-btns { display: flex; gap: .35rem; }
-  #tool .pane-body { display: flex; height: 220px; resize: vertical; overflow: hidden; min-height: 120px; }
+  #tool .pane-body { display: flex; height: 132px; resize: vertical; overflow: hidden; min-height: 120px; }
   #tool .gut, #tool textarea { font: 13.5px/20px var(--mono); padding: 8px 0; tab-size: 4; }
   #tool .gut { flex: none; width: 3.4em; padding-right: .6em; text-align: right; color: var(--muted); overflow: hidden; white-space: pre; user-select: none; background: var(--paper); border-right: 1px solid var(--line); }
   #tool textarea { flex: 1; min-width: 0; border: 0; resize: none; background: var(--card); color: var(--ink); padding-left: .6rem; padding-right: .6rem; overflow: auto; outline: none; white-space: pre; }
   #tool textarea:focus-visible { outline: 3px solid var(--brand-ink); outline-offset: -3px; }
   #tool textarea::placeholder { color: var(--muted); }
-  #tool .panes-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: .6rem 0 1rem; }
-  #tool .toast { font-size: .875rem; color: var(--ink); background: var(--brand-soft); border: 1px solid var(--edge); border-radius: 8px; padding: .35rem .6rem; }
+  #tool .toast { position: fixed; left: 50%; bottom: calc(24px + var(--kb, 0px)); transform: translateX(-50%); z-index: 40; max-width: min(92vw, 560px); font-size: .9375rem; color: var(--ink); background: var(--card); border: 1px solid var(--edge); border-left: 4px solid var(--brand-ink); border-radius: 10px; padding: .6rem .9rem; box-shadow: 0 12px 30px -12px rgb(0 0 0 / .4); }
   #tool .toast[hidden] { display: none; }
 
   #tool .result { border: 1px solid var(--edge); border-radius: 12px; background: var(--card); overflow: hidden; }
@@ -257,7 +257,7 @@ const clean = [
   #tool .identical .ok { margin: 0 0 .5rem; font-size: 1.25rem; font-weight: 700; color: var(--add-ink); }
   #tool .identical ul { margin: .25rem 0 0 1.25rem; padding: 0; list-style: disc; }
 
-  #tool .vlist { height: clamp(320px, 62vh, 760px); overflow: auto; font: 13.5px/1.55 var(--mono); tab-size: 4; background: var(--card); overscroll-behavior: contain; }
+  #tool .vlist { height: clamp(260px, calc(100vh - 470px), 800px); overflow: auto; font: 13.5px/1.55 var(--mono); tab-size: 4; background: var(--card); overscroll-behavior: contain; }
   #tool .vlist[hidden] { display: none; }
   #tool .vlist:focus-visible { outline: 3px solid var(--brand-ink); outline-offset: -3px; }
   #tool .vlist.nowrap .vrows { min-width: calc(var(--maxch, 80) * 1ch * 2 + 14ch); }
@@ -277,7 +277,7 @@ const clean = [
   #tool .row.chg .cell.a, #tool .row.del .cell.a, #tool .row.u.del { background: var(--del-bg); box-shadow: inset 3px 0 0 var(--del-bar); }
   #tool .row.chg .cell.b, #tool .row.add .cell.b, #tool .row.u.add { background: var(--add-bg); box-shadow: inset 3px 0 0 var(--add-bar); }
   #tool .row.il.chg { box-shadow: inset 3px 0 0 var(--edge); background: var(--paper); }
-  #tool .cell.empty { background: repeating-linear-gradient(135deg, transparent 0 6px, var(--line) 6px 7px); }
+  #tool .cell.none { background: repeating-linear-gradient(135deg, transparent 0 6px, var(--line) 6px 7px); }
   #tool .row.ign { opacity: .6; }
   #tool .row.cur, #tool .row.cur .cell.a, #tool .row.cur .cell.b { outline: 2px solid var(--brand-ink); outline-offset: -2px; }
   #tool mark, #tool ins, #tool del { color: inherit; text-decoration-thickness: 1px; border-radius: 3px; padding: 0 1px; cursor: pointer; }
@@ -310,6 +310,8 @@ const clean = [
   @media (max-width: 767px) {
     #tool .panes { grid-template-columns: 1fr; }
     #tool .pane-body { height: 160px; }
+    #tool .td-right { margin-left: 0; }
+    #tool .toast { bottom: calc(84px + var(--kb, 0px)); }
     #tool .td-line { flex-wrap: nowrap; overflow-x: auto; padding-bottom: .4rem; scrollbar-width: thin; }
     #tool .td-line > * { flex: none; }
     #tool .td-toggles { flex-wrap: nowrap; }
