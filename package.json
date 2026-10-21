@@ -9,8 +9,8 @@
     "preview": "astro preview",
     "test": "node scripts/test-diff.mjs",
     "test:ui": "node scripts/test-ui.mjs",
-    "build:bingemind": "npm test && SITE_MODE=bingemind astro build",
-    "deploy": "npm test && npm run build && node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/deploy.mjs"
+    "build:bingemind": "npm test && SITE_MODE=bingemind astro build && DIST=dist-bingemind BASE_PATH=/text-diff/ node scripts/test-ui.mjs",
+    "deploy": "npm test && npm run build && node scripts/test-ui.mjs && node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/deploy.mjs"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.4",

@@ -16,9 +16,8 @@ function tokenKey(str, o) {
 
 /**
  * Decide the comparison key of every token. A key of '' means the token is not compared.
- * `atStart` / `atEnd`: the text edge counts as a line edge.
  */
-function buildKeys(text, tk, o, gran) {
+function buildKeys(text, tk, o) {
   const n = tk.k.length;
   const keys = new Array(n);
   let i = 0;
@@ -88,7 +87,7 @@ function buildKeys(text, tk, o, gran) {
 function makeSide(text, o, gran) {
   const cl = cleanWithMap(text, o);
   const tk = gran === 'chars' ? graphemeTokens(cl.text) : wordTokens(cl.text);
-  const keys = buildKeys(cl.text, tk, o, gran);
+  const keys = buildKeys(cl.text, tk, o);
   const idx = [];
   for (let i = 0; i < keys.length; i++) if (keys[i] !== '') idx.push(i);
   return { text, cleaned: cl.text, mapS: cl.mapS, mapE: cl.mapE, tk, keys, idx };
@@ -255,6 +254,16 @@ export function tokenDiff(aText, bText, o, gran, refine = false, maxD = 3000) {
     } else merged.push(p.slice());
   }
 
+  // In characters mode the tokens are single characters, so word numbers come from the word tokens of the texts.
+  if (gran === 'chars') {
+    const wa = wordTokens(aText);
+    const wb = wordTokens(bText);
+    wordsA = countKind(wa, K_WORD);
+    wordsB = countKind(wb, K_WORD);
+    wordsRemoved = wordsTouched(wa, merged.filter((p) => p[0] === 1).map((p) => [p[1], p[2]]));
+    wordsAdded = wordsTouched(wb, merged.filter((p) => p[0] === 2).map((p) => [p[3], p[4]]));
+  }
+
   // Character totals and groups
   let charsRemoved = 0;
   let charsAdded = 0;
@@ -273,6 +282,24 @@ export function tokenDiff(aText, bText, o, gran, refine = false, maxD = 3000) {
     chars: { removed: charsRemoved, added: charsAdded },
     groups,
   };
+}
+
+function countKind(t, kind) {
+  let n = 0;
+  for (let i = 0; i < t.k.length; i++) if (t.k[i] === kind) n++;
+  return n;
+}
+
+/** Number of word tokens that overlap any of the ranges. Both lists are in order. */
+function wordsTouched(t, ranges) {
+  let n = 0;
+  let r = 0;
+  for (let i = 0; i < t.k.length && r < ranges.length; i++) {
+    if (t.k[i] !== K_WORD) continue;
+    while (r < ranges.length && ranges[r][1] <= t.s[i]) r++;
+    if (r < ranges.length && ranges[r][0] < t.e[i]) n++;
+  }
+  return n;
 }
 
 function countG(text, s, e) {

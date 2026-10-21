@@ -19,8 +19,9 @@ export function withDefaults(o) {
 // ---- cleaning (shared by the string path and the map path)
 const ZW_RE = /[\u200B\u200C\u200D\u2060\uFEFF\u00AD\u200E\u200F]/g;
 const ZW_ONE = /[\u200B\u200C\u200D\u2060\uFEFF\u00AD\u200E\u200F]/;
-const NBSP_RE = /[\u00A0\u202F\u2007\u2009\u200A\u2008\u2005\u2004\u2003\u2002\u2006\u205F\u3000\u1680]/g;
-const NBSP_ONE = /^[\u00A0\u202F\u2007\u2009\u200A\u2008\u2005\u2004\u2003\u2002\u2006\u205F\u3000\u1680]$/;
+const NBSP_CLASS = '[\\u00A0\\u202F\\u2007\\u2009\\u200A\\u2008\\u2005\\u2004\\u2003\\u2002\\u2006\\u205F\\u3000\\u1680]';
+const NBSP_RE = new RegExp(NBSP_CLASS, 'g');
+const NBSP_ONE = new RegExp('^' + NBSP_CLASS + '$');
 const QUOTE_RE = /[\u2018\u2019\u201A\u201B\u2032\u201C\u201D\u201E\u201F\u2033\u2010\u2011\u2012\u2013\u2014\u2015\u2212\u2026]/g;
 const QUOTE_ONE = /[\u2018\u2019\u201A\u201B\u2032\u201C\u201D\u201E\u201F\u2033\u2010\u2011\u2012\u2013\u2014\u2015\u2212\u2026]/;
 
@@ -34,7 +35,7 @@ function quoteMap(ch) {
 }
 
 /** Character-level cleaning that does not depend on whitespace modes. */
-export function cleanChars(s, o) {
+function cleanChars(s, o) {
   if (o.nbspzw) s = s.replace(ZW_RE, '').replace(NBSP_RE, ' ');
   if (o.quotes) s = s.replace(QUOTE_RE, quoteMap);
   if (o.nfc) s = s.normalize('NFC');
@@ -43,7 +44,7 @@ export function cleanChars(s, o) {
 }
 
 /** Whitespace mode applied to a whole line (string path). */
-export function applyWs(s, ws) {
+function applyWs(s, ws) {
   switch (ws) {
     case 'trim': return s.replace(/^\s+|\s+$/g, '');
     case 'collapse': return s.replace(/\s+/g, ' ').replace(/^ | $/g, '');
@@ -70,8 +71,7 @@ export function cleanWithMap(s, o) {
     let rep = ch;
     if (o.nbspzw) {
       if (ZW_ONE.test(ch)) { i += len; continue; }
-      NBSP_RE.lastIndex = 0;
-      if (len === 1 && /[\u00A0\u202F\u2007\u2009\u200A\u2008\u2005\u2004\u2003\u2002\u2006\u205F\u3000\u1680]/.test(ch)) rep = ' ';
+      if (NBSP_ONE.test(ch)) rep = ' ';
     }
     if (o.quotes && QUOTE_ONE.test(rep)) rep = quoteMap(rep);
     for (let k = 0; k < rep.length; k++) { ms.push(i); me.push(i + len); }
@@ -127,10 +127,6 @@ export function graphemeRanges(str) {
     out.push(start, i);
   }
   return out;
-}
-
-export function countGraphemes(str) {
-  return graphemeRanges(str).length / 2;
 }
 
 // ---- word tokens

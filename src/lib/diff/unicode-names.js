@@ -76,7 +76,7 @@ export function hex(cp) {
 }
 
 /** Describe one code point: { cp, hex, short, name, ch }. `short` is a label such as ZWSP, or the hex code. */
-export function describeCodePoint(cp) {
+function describeCodePoint(cp) {
   const e = NAMES[cp];
   const ch = String.fromCodePoint(cp);
   return { cp, hex: hex(cp), short: e ? e[0] : hex(cp), name: e ? e[1] : null, ch };

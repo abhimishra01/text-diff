@@ -2,8 +2,11 @@
 import { redline, unifiedDiff, statsText } from '../diff/export.js';
 import { DEFAULT_OPTIONS } from '../diff/chars.js';
 import { inspectChange, isHidden } from '../diff/unicode-names.js';
-import { flatten, entryHtml, groupTexts, esc } from './render.js';
+import { flatten, entryHtml, groupTexts } from './render.js';
+import { esc } from '../esc.js';
 import { SAMPLE_A, SAMPLE_B } from './sample.js';
+import { decodeText, BINARY_MSG } from './files.js';
+import { writeClipboard } from './clipboard.js';
 
 const STORE_KEY = 'bm.textdiff.opts.v1';
 const ROW_EST = 24;
@@ -93,12 +96,15 @@ function init() {
   };
   const plural = (n, w) => `${n.toLocaleString('en-US')} ${w}${n === 1 ? '' : 's'}`;
 
+  const emptyResult = () => ({ mode: 'lines', aLines: [], bLines: [], blocks: [], stats: { changes: 0, wordsAdded: 0, wordsRemoved: 0, similarity: null }, notes: [], ignored: [], state: 'empty' });
+
   // ---- worker
   let worker = null;
   let jobId = 0;
   let busy = false;
   let progressTimer = 0;
   let debounceTimer = 0;
+  let pending = false; // a compare is waiting for the typing pause
   const startWorker = () => {
     worker = new Worker(new URL('../diff/worker.js', import.meta.url), { type: 'module' });
     worker.onmessage = onWorkerMessage;
@@ -109,12 +115,14 @@ function init() {
 
   function runCompare() {
     clearTimeout(debounceTimer);
+    pending = false;
     const a = textOf('a');
     const b = textOf('b');
     if (!worker) startWorker();
     else if (busy) { worker.terminate(); startWorker(); }
     busy = true;
     root.dataset.busy = '1';
+    updateCopy();
     const id = ++jobId;
     clearTimeout(progressTimer);
     progressTimer = setTimeout(showProgress, 400);
@@ -136,11 +144,14 @@ function init() {
     busy = false;
     root.dataset.busy = '0';
     hideProgress();
-    say('Compare cancelled. Change the texts or options to run it again.');
+    applyResult({ ...emptyResult(), cancelled: true });
+    say('Compare cancelled. Press Compare to run it again.');
   });
 
   const schedule = (ms = 300) => {
     clearTimeout(debounceTimer);
+    pending = true;
+    updateCopy();
     debounceTimer = setTimeout(runCompare, ms);
   };
 
@@ -235,36 +246,14 @@ function init() {
   }
 
   // ---- files
-  const BINARY_MSG = 'This looks like a Word, PDF or image file. Copy the text out and paste it here.';
-  function looksBinary(bytes) {
-    const n = Math.min(bytes.length, 8192);
-    if (n >= 4) {
-      const sig = (s) => s.split('').every((c, i) => bytes[i] === c.charCodeAt(0));
-      if (sig('%PDF') || sig('PK\u0003\u0004') || sig('\u0089PNG') || sig('GIF8') || sig('\u007fELF')) return true;
-      if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return true;
-      if (bytes[0] === 0xD0 && bytes[1] === 0xCF && bytes[2] === 0x11 && bytes[3] === 0xE0) return true;
-    }
-    let ctrl = 0;
-    for (let i = 0; i < n; i++) {
-      const c = bytes[i];
-      if (c === 0) return true;
-      if (c < 9 || (c > 13 && c < 32 && c !== 27)) ctrl++;
-    }
-    return n > 0 && ctrl / n > 0.1;
-  }
   async function openFile(file, ta, gut, label) {
     if (!file) return;
     if (file.size > 50 * 1024 * 1024) { say('This file is over 50 MB. Open a smaller one.'); return; }
     if (file.size > 25 * 1024 * 1024) say('Large file. Comparing may take a while. You can cancel.');
-    const buf = await file.arrayBuffer();
-    const bytes = new Uint8Array(buf);
-    let enc = 'utf-8';
-    if (bytes[0] === 0xFF && bytes[1] === 0xFE) enc = 'utf-16le';
-    else if (bytes[0] === 0xFE && bytes[1] === 0xFF) enc = 'utf-16be';
-    else if (looksBinary(bytes)) { say(BINARY_MSG); return; }
-    const text = new TextDecoder(enc, { ignoreBOM: true }).decode(bytes);
-    setText(ta, gut, text);
-    say(`${label}: opened ${file.name}.`);
+    const r = decodeText(new Uint8Array(await file.arrayBuffer()));
+    if (r.binary) { say(BINARY_MSG); return; }
+    setText(ta, gut, r.text);
+    say(r.note ? `${label}: opened ${file.name}. ${r.note}` : `${label}: opened ${file.name}.`);
     runCompare();
   }
   for (const [side, ta, gut] of [['a', taA, gutA], ['b', taB, gutB]]) {
@@ -351,7 +340,7 @@ function init() {
   btnOpts.addEventListener('click', () => toggleOpts());
   document.addEventListener('click', (e) => {
     if (!optsPanel.hidden && !optsPanel.contains(e.target) && !btnOpts.contains(e.target)) toggleOpts(false);
-    if (!inspector.hidden && !inspector.contains(e.target) && !e.target.closest('mark.can, ins.can, del.can')) closeInspector();
+    if (!inspector.hidden && !inspector.contains(e.target) && !e.target.closest('mark.can, ins.can, del.can, #btn-inspect')) closeInspector();
   });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
@@ -393,7 +382,6 @@ function init() {
     state.cur = -1;
     state.folds = new Set();
     state.expanded = new Set();
-    // Words and characters read best inline. Lines read best split or unified.
     renderStatus();
     rebuild(true);
   }
@@ -403,24 +391,24 @@ function init() {
     const s = res.stats;
     notesEl.innerHTML = '';
     resultBody.dataset.state = res.state;
-    emptyEl.hidden = res.state !== 'empty';
+    emptyEl.hidden = res.state !== 'empty' || !!res.cancelled;
     identicalEl.hidden = res.state !== 'identical';
     list.hidden = res.state !== 'changed';
     $('sumbar').dataset.state = res.state;
     if (res.state === 'empty') {
-      summary.textContent = 'Paste or type text in both boxes to compare.';
+      summary.textContent = res.cancelled ? 'Cancelled. Press Compare to run again.' : 'Paste or type text in both boxes to compare.';
     } else if (res.state === 'identical') {
       summary.textContent = 'No differences.';
       const ul = $('ignored-list');
       ul.innerHTML = res.ignored.map((t) => `<li>${esc(t)}</li>`).join('');
       $('ignored-head').hidden = res.ignored.length === 0;
     } else {
-      summary.textContent = `${plural(s.changes, 'change')}. ${plural(s.wordsAdded, 'word')} added, ${s.wordsRemoved.toLocaleString('en-US')} removed. Similarity ${s.similarity} percent.`;
+      summary.textContent = `${plural(s.changes, 'change')}. ${plural(s.wordsAdded, 'word')} added, ${s.wordsRemoved.toLocaleString('en-US')} removed.${s.similarity === null ? '' : ` Similarity ${s.similarity} percent.`}`;
     }
     const sl = $('stats-line');
     if (res.state === 'changed') {
       const n = (v) => v.toLocaleString('en-US');
-      sl.textContent = `Lines: ${n(s.linesAdded)} added, ${n(s.linesRemoved)} removed, ${n(s.linesChanged)} changed. Characters: ${n(s.charsAdded)} added, ${n(s.charsRemoved)} removed.`;
+      sl.textContent = `Lines: ${n(s.linesAdded)} added, ${n(s.linesRemoved)} removed, ${n(s.linesChanged)} changed. Characters: ${n(s.charsAdded)} added, ${n(s.charsRemoved)} removed.${s.similarity === null ? '' : ' Similarity counts shared words. It does not check for copying.'}`;
       sl.hidden = false;
     } else sl.hidden = true;
     for (const n of res.notes) {
@@ -442,9 +430,20 @@ function init() {
       notesEl.appendChild(el);
     }
     const hasChanges = res.state === 'changed';
-    for (const id of ['copy-diff', 'copy-redline', 'copy-stats']) $(id).disabled = res.state === 'empty';
+    updateCopy();
+    const near = $('near-sum');
+    near.hidden = res.state === 'empty';
+    $('near-text').textContent = res.state === 'changed' ? `${plural(s.changes, 'change')} found.` : 'No differences.';
+    $('near-go').hidden = res.state !== 'changed';
+    $('m-result').classList.toggle('primary', hasChanges);
     for (const id of ['prev', 'next', 'prev-m', 'next-m']) $(id).disabled = !hasChanges;
     phoneNote.hidden = !(phoneQuery.matches && state.view === 'split' && hasChanges);
+  }
+
+  // Copy works on the result on screen, so it waits while a new compare is pending or running. Nothing to copy when there are no differences.
+  function updateCopy() {
+    const ok = state.result && state.result.state === 'changed' && !busy && !pending;
+    for (const id of ['copy-diff', 'copy-redline', 'copy-stats']) $(id).disabled = !ok;
   }
 
   // ---- virtual list
@@ -557,7 +556,7 @@ function init() {
   // ---- change navigation
   function updateCounter() {
     const total = state.flat.changes.length;
-    const txt = total ? `${state.cur >= 0 ? state.cur + 1 : 0} of ${total}` : '0 of 0';
+    const txt = total ? (state.cur >= 0 ? `${state.cur + 1} of ${total}` : plural(total, 'change')) : 'No changes';
     counter.textContent = txt;
     $('counter-m').textContent = txt;
     $('btn-inspect').disabled = !total || state.cur < 0;
@@ -653,54 +652,39 @@ function init() {
   $('btn-inspect').addEventListener('click', inspectCurrent);
 
   // ---- copy
-  async function writeClipboard(items, plainFallback, okMsg, fallbackMsg) {
-    try {
-      if (items && window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
-        await navigator.clipboard.write([new ClipboardItem(items)]);
-        say(okMsg);
-        return;
-      }
-      await navigator.clipboard.writeText(plainFallback);
-      say(items ? fallbackMsg : okMsg);
-    } catch {
-      const ta = document.createElement('textarea');
-      ta.value = plainFallback;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      let ok = false;
-      try { ok = document.execCommand('copy'); } catch { ok = false; }
-      ta.remove();
-      say(ok ? (items ? fallbackMsg : okMsg) : 'Your browser blocked copying. Select the text and copy it by hand.');
-    }
-  }
+  const copy = async (...args) => say(await writeClipboard(...args));
   const blob = (s, type) => new Blob([s], { type });
+  const o0 = () => state.opts;
+  const ignoresSomething = () => o0().ignoreCase || o0().ws !== 'off' || o0().ignoreBlank || o0().nfc || o0().quotes || o0().nbspzw;
   $('copy-redline').addEventListener('click', () => {
     const res = state.result;
     if (!res) return;
     const { plain, html } = redline(res);
-    writeClipboard({ 'text/html': blob(html, 'text/html'), 'text/plain': blob(plain, 'text/plain') }, plain,
-      'Redline copied. Paste it into Word, Google Docs or an email.',
+    copy({ 'text/html': blob(html, 'text/html'), 'text/plain': blob(plain, 'text/plain') }, plain,
+      'Redline copied. Paste it into Word, Google Docs or an email. Check how your app shows the marks.',
       'Copied as plain text with [-removed-] and {+added+}. Your browser cannot copy colors.');
   });
   $('copy-stats').addEventListener('click', () => {
-    if (!state.result) return;
-    const t = statsText(state.result);
-    writeClipboard(null, t, 'Stats copied.');
+    if (state.result) copy(null, statsText(state.result), 'Stats copied.');
   });
-  $('copy-diff').addEventListener('click', async () => {
+  $('copy-diff').addEventListener('click', () => {
     const res = state.result;
     if (!res) return;
-    if (res.mode === 'lines') { writeClipboard(null, unifiedDiff(res), 'Unified diff copied.'); return; }
+    const done = 'Unified diff copied.' + (ignoresSomething() ? ' Differences that your options ignore are not in it.' : '');
+    if (res.mode === 'lines') { copy(null, unifiedDiff(res), done); return; }
+    // The diff always comes from the line view, so words and characters modes ask the worker for it.
     const w = new Worker(new URL('../diff/worker.js', import.meta.url), { type: 'module' });
-    w.onmessage = (ev) => { w.terminate(); if (ev.data.error) say('Could not build the diff.'); else writeClipboard(null, ev.data.unified, 'Unified diff copied.'); };
+    const fail = () => { w.terminate(); say('Could not build the diff. Try again.'); };
+    w.onerror = fail;
+    w.onmessage = (ev) => { w.terminate(); if (ev.data.error) fail(); else copy(null, ev.data.unified, done); };
     w.postMessage({ id: 1, type: 'export', a: textOf('a'), b: textOf('b'), options: { ...state.opts } });
   });
 
   // ---- phone bar and keyboard space
   $('m-edit').addEventListener('click', () => { panes.classList.remove('collapsed'); $('btn-panes').textContent = 'Hide texts'; $('btn-panes').setAttribute('aria-expanded', 'true'); panes.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
-  $('m-result').addEventListener('click', () => $('result').scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  const showResult = () => $('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('m-result').addEventListener('click', showResult);
+  $('near-go').addEventListener('click', showResult);
   if (window.visualViewport) {
     const fit = () => {
       const vv = window.visualViewport;
@@ -719,6 +703,6 @@ function init() {
   updateCounts();
   updateGutter(taA, gutA);
   updateGutter(taB, gutB);
-  applyResult({ mode: 'lines', aLines: [], bLines: [], blocks: [], stats: { changes: 0, wordsAdded: 0, wordsRemoved: 0, similarity: 100 }, notes: [], ignored: [], state: 'empty' });
+  applyResult(emptyResult());
 
 }

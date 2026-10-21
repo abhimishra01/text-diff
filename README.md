@@ -8,7 +8,7 @@ A free browser tool that compares two texts by line, word or character. It runs 
 npm run dev            # work on the site (port 4321, or pass --port)
 npm test               # known-answer and property tests for the compare engine
 npm run build          # build to dist/
-npm run build:bingemind  # tests, then build to dist-bingemind/ for bingemind.com/text-diff/
+npm run build:bingemind  # tests, build to dist-bingemind/ for bingemind.com/text-diff/, then the browser tests on that build
 npm run test:ui        # browser tests (needs a build, Google Chrome and playwright-core)
 ```
 
@@ -23,6 +23,11 @@ npm run test:ui        # browser tests (needs a build, Google Chrome and playwri
 | `src/lib/diff/export.js` | Unified diff, redline (plain and HTML), stats text |
 | `src/lib/diff/unicode-names.js` | Small table of look-alike characters, hidden-character parts, inspector reasons |
 | `src/lib/diff/worker.js` | Worker wrapper |
+| `src/lib/esc.js` | HTML escape, shared by the views and the redline export |
+| `src/lib/url.ts` | Builds internal URLs that work under a base path |
+| `src/lib/ui/files.js` | Reads a file: encoding, byte order mark, binary check |
+| `src/lib/ui/clipboard.js` | Rich and plain copy |
+| `src/lib/ui/sample.js` | Text for the Sample button |
 | `src/lib/ui/render.js` | HTML for the split, unified and inline views, and the entry list for the virtual list |
 | `src/lib/ui/tool.js` | Page behavior: panes, options, worker, virtual list, copy, inspector |
 | `scripts/test-diff.mjs` | Tests T1 to T27, S1 to S4 and S7 from the spec, plus property tests |

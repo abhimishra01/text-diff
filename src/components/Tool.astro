@@ -114,6 +114,8 @@ const clean = [
     </div>
   </div>
   <span id="toast" class="toast" role="status" hidden></span>
+  <p id="near-sum" class="near-sum" hidden><span id="near-text"></span> <button type="button" class="link" id="near-go">Show result</button></p>
+  <noscript><p class="note">This tool needs JavaScript. Turn it on in your browser to compare texts.</p></noscript>
 
   <div id="result" class="result">
     <div id="sumbar" class="sumbar" data-state="empty">
@@ -144,8 +146,8 @@ const clean = [
     <div id="result-body" class="result-body" data-state="empty">
       <div id="empty" class="empty">
         <ol>
-          <li>Paste the original text in the left box.</li>
-          <li>Paste the changed text in the right box.</li>
+          <li>Paste the original text in the Original box.</li>
+          <li>Paste the changed text in the Changed box.</li>
           <li>Read the differences here. They update as you type.</li>
         </ol>
         <p>Or <button type="button" class="link" id="empty-sample">try the sample</button>.</p>
@@ -247,6 +249,7 @@ const clean = [
   #tool textarea::placeholder { color: var(--muted); }
   #tool .toast { position: fixed; left: 50%; bottom: calc(24px + var(--kb, 0px)); transform: translateX(-50%); z-index: 40; max-width: min(92vw, 560px); font-size: .9375rem; color: var(--ink); background: var(--card); border: 1px solid var(--edge); border-left: 4px solid var(--brand-ink); border-radius: 10px; padding: .6rem .9rem; box-shadow: 0 12px 30px -12px rgb(0 0 0 / .4); }
   #tool .toast[hidden] { display: none; }
+  #tool .near-sum { display: none; margin: 0 0 .75rem; font-weight: 600; }
 
   #tool .result { border: 1px solid var(--edge); border-radius: 12px; background: var(--card); overflow: hidden; }
   #tool .sumbar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding: .5rem .75rem; border-bottom: 1px solid var(--line); }
@@ -276,6 +279,7 @@ const clean = [
   #tool .vlist[hidden] { display: none; }
   #tool .vlist:focus-visible { outline: 3px solid var(--brand-ink); outline-offset: -3px; }
   #tool .vlist.nowrap .vrows { min-width: calc(var(--maxch, 80) * 1ch * 2 + 14ch); }
+  #tool .vlist.nowrap[data-view="split"] .vrows { min-width: calc(var(--maxch, 80) * 1ch * 2 + 14ch); }
   #tool .vlist.nowrap[data-view="unified"] .vrows, #tool .vlist.nowrap[data-view="inline"] .vrows { min-width: calc(var(--maxch, 80) * 1ch + 14ch); }
   #tool .vlist.nowrap .row { height: 24px; }
   #tool .vlist.nowrap .tx { white-space: pre; overflow: hidden; }
@@ -293,7 +297,7 @@ const clean = [
   #tool .row.chg .cell.b, #tool .row.add .cell.b, #tool .row.u.add { background: var(--add-bg); box-shadow: inset 3px 0 0 var(--add-bar); }
   #tool .row.il.chg { box-shadow: inset 3px 0 0 var(--edge); background: var(--paper); }
   #tool .cell.none { background: repeating-linear-gradient(135deg, transparent 0 6px, var(--line) 6px 7px); }
-  #tool .row.ign { opacity: .6; }
+  #tool .row.ign { background: repeating-linear-gradient(90deg, transparent 0 6px, var(--line) 6px 8px); }
   #tool .row.cur, #tool .row.cur .cell.a, #tool .row.cur .cell.b { outline: 2px solid var(--brand-ink); outline-offset: -2px; }
   #tool mark, #tool ins, #tool del { color: inherit; text-decoration-thickness: 1px; border-radius: 3px; padding: 0 1px; }
   #tool mark.can, #tool ins.can, #tool del.can { cursor: pointer; }
@@ -324,13 +328,18 @@ const clean = [
   #tool .mobbar { display: none; }
   #tool .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-  @media (max-width: 767px) {
+  @media (max-width: 899px) {
     #tool .panes { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 767px) {
+    #tool .near-sum:not([hidden]) { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+    #tool .mobbar .btn.primary { color: #fff; }
     #tool .pane-body { height: 160px; }
     #tool .td-right { margin-left: 0; }
     #tool .toast { bottom: calc(84px + var(--kb, 0px)); }
     #tool .td-line { flex-wrap: wrap; }
-    #tool .td-scroll { display: flex; flex: 1 1 100%; align-items: center; gap: .6rem .9rem; overflow-x: auto; padding-bottom: .4rem; scrollbar-width: thin; }
+    #tool .td-scroll { display: flex; flex: 1 1 100%; align-items: center; gap: .6rem .9rem; overflow-x: auto; padding-bottom: .4rem; scrollbar-width: thin;
+      background: linear-gradient(to right, var(--paper) 30%, transparent) left / 32px 100% no-repeat local, linear-gradient(to left, var(--paper) 30%, transparent) right / 32px 100% no-repeat local, radial-gradient(farthest-side at 0 50%, rgb(0 0 0 / .22), transparent) left / 12px 100% no-repeat scroll, radial-gradient(farthest-side at 100% 50%, rgb(0 0 0 / .22), transparent) right / 12px 100% no-repeat scroll; }
     #tool .td-scroll > * { flex: none; }
     #tool .td-toggles { flex-wrap: nowrap; }
     #tool .btn.small, #tool .chip, #tool .foldbtn, #tool .more { min-height: 44px; }

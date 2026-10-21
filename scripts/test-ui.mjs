@@ -162,7 +162,7 @@ await check('character inspector card', async () => {
 });
 await check('next and previous change, keys n and p', async () => {
   await fill('a\nb\nc\nd\ne\nf\ng\nh\ni\nj\nk', 'a\nB\nc\nd\ne\nf\ng\nh\ni\nJ\nk');
-  assert.equal((await page.textContent('#counter')).trim(), '0 of 2');
+  assert.equal((await page.textContent('#counter')).trim(), '2 changes');
   await page.click('#next'); assert.equal((await page.textContent('#counter')).trim(), '1 of 2');
   await page.click('body'); await page.keyboard.press('n'); assert.equal((await page.textContent('#counter')).trim(), '2 of 2');
   await page.keyboard.press('p'); assert.equal((await page.textContent('#counter')).trim(), '1 of 2');
@@ -301,6 +301,45 @@ await check('real paste: over the limit into an empty box, and into the preview 
   await page.click('#clear-a'); await page.waitForTimeout(200);
   assert.equal(await page.locator('#large-a').isVisible(), false);
   await page.fill('#ta-a', 'typing works again'); assert.equal(await page.inputValue('#ta-a'), 'typing works again');
+});
+await check('Inspect button opens the card when clicked', async () => {
+  await fill('caf\u00e9', 'cafe\u0301');
+  await page.click('#next'); await settle();
+  await page.click('#btn-inspect');
+  await page.waitForSelector('#inspector:not([hidden])', { timeout: 2000 });
+  assert.match(await page.textContent('#inspector'), /Unicode form/);
+  await page.keyboard.press('Escape');
+});
+await check('wrap off scrolls sideways in split, unified and inline, and in compact mode', async () => {
+  const long = 'word '.repeat(400);
+  await page.uncheck('#tog-wrap');
+  await fill(long + 'one', long + 'two');
+  for (const v of ['split', 'unified', 'inline']) {
+    await page.click(`input[name=view][value=${v}]`, { force: true }); await page.waitForTimeout(200);
+    const m = await page.evaluate(() => { const l = document.getElementById('list'); return [l.scrollWidth, l.clientWidth]; });
+    assert.ok(m[0] > m[1], `${v}: scrollWidth ${m[0]} clientWidth ${m[1]}`);
+  }
+  await page.check('#tog-wrap');
+});
+await check('no differences: nothing to copy; cancel leaves a true message', async () => {
+  await fill('same', 'same');
+  for (const id of ['copy-diff', 'copy-redline', 'copy-stats']) assert.equal(await page.isDisabled('#' + id), true, id);
+});
+await check('UTF-16 file with BOM against the same UTF-8 text: no difference', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'td-'));
+  const text = 'caf\u00e9\nline two';
+  fs.writeFileSync(path.join(tmp, 'u16.txt'), Buffer.concat([Buffer.from([0xFF, 0xFE]), Buffer.from(text, 'utf16le')]));
+  fs.writeFileSync(path.join(tmp, 'u8.txt'), '\uFEFF' + text);
+  await page.click('#btn-clear'); await settle();
+  await page.setInputFiles('#file-a', path.join(tmp, 'u16.txt')); await settle();
+  await page.setInputFiles('#file-b', path.join(tmp, 'u8.txt')); await settle();
+  assert.match(await summary(), /No differences/);
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+await check('characters mode summary counts words, not letters', async () => {
+  await fill('hello brave new world', 'hello new world');
+  await page.click('input[name=mode][value=chars]', { force: true }); await settle();
+  assert.match(await summary(), /0 words added, 1 removed/);
 });
 await check('no console errors or warnings', async () => { assert.deepEqual(consoleProblems, []); });
 

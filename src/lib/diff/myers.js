@@ -24,6 +24,7 @@ function pushRun(out, t, a, b, n) {
  * y items of b, ending at the furthest point reached. The caller continues from there.
  * Returns null only when the work budget is gone.
  */
+// Memory note: the trace keeps one slice per step, about maxD squared integers (36 MB at the default 3000).
 function myers(a, aS, aE, b, bS, bE, maxD, state) {
   const N = aE - aS;
   const M = bE - bS;

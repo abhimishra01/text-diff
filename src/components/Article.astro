@@ -8,13 +8,13 @@
 
     <h2>How to compare two texts in three steps</h2>
     <ol>
-      <li>Paste the original text in the left box and the changed text in the right box. You can also drop a text file on a box.</li>
+      <li>Paste the original text in the Original box and the changed text in the Changed box. You can also drop a text file on a box.</li>
       <li>Pick Lines, Words or Characters. The result updates as you type.</li>
       <li>Read the result. Press <kbd>n</kbd> for the next change and <kbd>p</kbd> for the previous one.</li>
     </ol>
 
     <h2>A worked example</h2>
-    <p>Paste "The lease runs for 12 months." on the left and "The lease runs for 24 months, with an option to renew." on the right. Pick Words. The tool strikes out 12 and underlines 24. It also underlines the new clause after "months". The summary reads 2 changes, 6 words added and 1 removed, with a similarity of 59 percent. Click "Copy redline" and paste the result into an email. The reader sees the same marks.</p>
+    <p>Paste "The lease runs for 12 months." on the left and "The lease runs for 24 months, with an option to renew." on the right. Pick Words. The tool strikes out 12 and underlines 24. It also underlines the new clause after "months". The summary reads 2 changes, 6 words added and 1 removed, with a similarity of 59 percent. Click "Copy redline" and paste the result into an email. In our tests in Chrome the colors and marks came across. Check how your own app shows them before you send it.</p>
 
     <h2>Lines, words or characters?</h2>
     <table class="wide">
@@ -55,12 +55,12 @@
     <p>Split puts the two texts side by side, row by row. Unified shows one column, with a minus sign for removed lines and a plus sign for added lines. Inline shows one flowing text with deleted words struck through and added words underlined. Use "Copy redline" to paste the inline result into Word, Google Docs or an email. The colors come with it.</p>
 
     <h2>Large texts</h2>
-    <p>The comparing runs in a background thread, so the page stays responsive while it works. In our tests a text of 100,000 lines (about 4 MB) with 1,000 changed lines compared in under a second. When two large texts are almost completely different, the tool switches to an approximate method. It then shows a note. Every change it shows is real, but the list may not be the shortest possible.</p>
+    <p>The comparing runs in a background thread, so the page stays responsive while it works. In our tests a text of 100,000 lines (about 4 MB) with 1,000 changed lines compared in under a second. Text above 400,000 characters stays in memory, and the box then shows a read-only preview of the first lines. Paste or open a file to replace it. When two large texts are almost completely different, the tool switches to an approximate method. It then shows a note. Every change it shows is real, but the list may not be the shortest possible.</p>
 
     <h2>Privacy</h2>
     <p>The comparing happens in your browser. The tool does not send your text to a server. You can check this yourself. Open your browser's developer tools, go to the Network tab, paste two texts and watch. No request carries your text. The tool remembers your options and your theme choice on your device. It does not save your texts.</p>
 
     <h2>What this tool does not do</h2>
-    <p>It compares text only. It does not open Word files, PDFs, spreadsheets or folders. Copy the text out and paste it here. It is not a plagiarism checker. The similarity number counts shared words and nothing else. To compare two JSON files by their data, use a JSON-aware tool, and to compare two lists of items use a list compare tool. You can find more on our <a href="https://bingemind.com/tools/">free tools page</a>.</p>
+    <p>It compares text only. It does not open Word files, PDFs, spreadsheets or folders. Copy the text out and paste it here. It is not a plagiarism checker. The similarity number counts shared words and nothing else. To compare two JSON files by their data, use the <a href="https://bingemind.com/json-diff/">JSON diff tool</a>. You can find more on our <a href="https://bingemind.com/tools/">free tools page</a>.</p>
   </article>
 </section>

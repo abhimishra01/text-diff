@@ -6,6 +6,7 @@ import { tokenDiff } from '../src/lib/diff/tokens.js';
 import { normalizeString, withDefaults, graphemeRanges, wordTokens, countWords } from '../src/lib/diff/chars.js';
 import { unifiedDiff, redline, statsText } from '../src/lib/diff/export.js';
 import { hiddenParts, inspectChange } from '../src/lib/diff/unicode-names.js';
+import { decodeText } from '../src/lib/ui/files.js';
 
 let checks = 0;
 let failed = 0;
@@ -238,6 +239,56 @@ check('T28 redline lines mode', () => {
 check('stats text', () => {
   const r = C('one two three', 'one three four', { mode: 'words' });
   assert.match(statsText(r), /Similarity 67 percent/);
+});
+
+// ---- fixes from the review
+check('characters mode counts words, not letters', () => {
+  const w = C('hello brave new world', 'hello new world', { mode: 'words' });
+  const c = C('hello brave new world', 'hello new world', { mode: 'chars' });
+  eq(c.stats.wordsRemoved, 1);
+  eq(c.stats.wordsAdded, 0);
+  eq(c.stats.similarity, w.stats.similarity);
+  const swap = C('a'.repeat(500), 'b'.repeat(500), { mode: 'chars' });
+  eq([swap.stats.wordsRemoved, swap.stats.wordsAdded], [1, 1]);
+  eq(swap.stats.charsRemoved, 500);
+  assert.doesNotMatch(statsText(c), /\b5 words/);
+});
+check('similarity is null when there are no words', () => {
+  const r = C(U(0x1F600), U(0x1F603), { mode: 'lines' });
+  eq(r.stats.similarity, null);
+  assert.doesNotMatch(statsText(r), /Similarity/);
+});
+check('files: BOM is stripped, UTF-16 equals UTF-8, Windows-1252 fallback, binary refused', () => {
+  const text = 'caf\u00e9\nline two';
+  const utf8 = new TextEncoder().encode(text);
+  const utf8bom = Uint8Array.from([0xEF, 0xBB, 0xBF, ...utf8]);
+  const u16 = new Uint8Array(2 + text.length * 2);
+  u16[0] = 0xFF; u16[1] = 0xFE;
+  for (let i = 0; i < text.length; i++) { u16[2 + 2 * i] = text.charCodeAt(i) & 255; u16[3 + 2 * i] = text.charCodeAt(i) >> 8; }
+  eq(decodeText(utf8bom).text, text);
+  eq(decodeText(u16).text, text);
+  eq(C(decodeText(u16).text, decodeText(utf8).text).state, 'identical');
+  eq(C(decodeText(utf8bom).text, decodeText(utf8).text).state, 'identical');
+  const latin = decodeText(Uint8Array.from([0x63, 0x61, 0x66, 0xE9]));
+  eq(latin.text, 'caf\u00e9');
+  assert.ok(latin.note);
+  eq(decodeText(Uint8Array.from([0x25, 0x50, 0x44, 0x46, 0x2d, 0, 1, 2])).binary, true);
+});
+check('ignored blank lines are not in Copy diff or Copy redline', () => {
+  const r = C('a\n\nb', 'a\nb', { ignoreBlank: true });
+  eq(r.state, 'identical');
+  eq(unifiedDiff(r), '--- original\n+++ changed');
+  const rl = redline(r);
+  assert.doesNotMatch(rl.plain, /\[-|\{\+/);
+  assert.doesNotMatch(rl.html, /<del|<ins/);
+  const both = C('a\n\nb\nc', 'a\nb\nX', { ignoreBlank: true });
+  assert.doesNotMatch(unifiedDiff(both), /^[-+]$/m);
+});
+check('redline html uses <s> and <u> and forces no font', () => {
+  const { html } = redline(C('The quick brown fox', 'The quick red fox', { mode: 'words' }));
+  assert.match(html, /<del[^>]*><s>brown<\/s><\/del>/);
+  assert.match(html, /<ins[^>]*><u>red<\/u><\/ins>/);
+  assert.doesNotMatch(html, /font-family|font-size/);
 });
 
 // ---- Myers and property tests

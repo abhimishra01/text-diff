@@ -6,7 +6,7 @@ import {
 import { diffInts, EQ, DEL } from './myers.js';
 import { tokenDiff } from './tokens.js';
 
-const BREAK_RE = /\r\n|\r|\n/g;
+const breakRe = () => /\r\n|\r|\n/g;
 
 /** Split a text into lines. `eols[i]` is the line break after line i ('' for a last line without one). */
 export function splitLines(text, wantEols = false) {
@@ -16,19 +16,12 @@ export function splitLines(text, wantEols = false) {
   if (lines[lines.length - 1] === '' && /(\r\n|\r|\n)$/.test(text)) { lines.pop(); finalNewline = true; }
   const kinds = {
     crlf: text.indexOf('\r\n') >= 0,
-    lone_cr: /\r(?!\n)/.test(text),
+    cr: /\r(?!\n)/.test(text),
     lf: /(?:^|[^\r])\n/.test(text),
   };
-  const out = { lines, eols: [], finalNewline, kinds: { crlf: kinds.crlf, cr: kinds.lone_cr, lf: kinds.lf } };
-  if (wantEols) {
-    const eols = [];
-    BREAK_RE.lastIndex = 0;
-    let m;
-    while ((m = BREAK_RE.exec(text)) !== null) eols.push(m[0]);
-    while (eols.length < lines.length) eols.push('');
-    out.eols = eols;
-  }
-  return out;
+  const eols = wantEols ? Array.from(text.matchAll(breakRe()), (m) => m[0]) : [];
+  while (wantEols && eols.length < lines.length) eols.push('');
+  return { lines, eols, finalNewline, kinds };
 }
 
 function eolNames(kinds) {
@@ -120,8 +113,7 @@ const LONG_LINE = 6000;
 /** Word and character highlights for two lines. Long lines are cut to the part that differs. */
 function pairSegs(at, bt, o) {
   if (at.length < LONG_LINE && bt.length < LONG_LINE) {
-    const r = tokenDiff(at, bt, o, 'words', true);
-    return r;
+    return tokenDiff(at, bt, o, 'words', true);
   }
   // Trim the common start and end, but stay on a safe boundary.
   let p = 0;
@@ -328,7 +320,7 @@ function compareLines(aText, bText, o) {
   stats.wordsRemoved = wordsRemoved;
   stats.wordsAdded = wordsAdded;
   const sim = pct(wordsA, wordsB, wordsRemoved, wordsAdded);
-  stats.similarity = sim === null ? (stats.changes === 0 ? 100 : 0) : sim;
+  stats.similarity = sim; // null when neither text has words
   stats.wordsA = wordsA;
   stats.wordsB = wordsB;
 
@@ -343,9 +335,7 @@ function compareLines(aText, bText, o) {
 // ---- words and characters mode
 function lineStarts(text) {
   const starts = [0];
-  BREAK_RE.lastIndex = 0;
-  let m;
-  while ((m = BREAK_RE.exec(text)) !== null) starts.push(m.index + m[0].length);
+  for (const m of text.matchAll(breakRe())) starts.push(m.index + m[0].length);
   return starts;
 }
 function lineAt(starts, offset, total) {
@@ -358,10 +348,7 @@ function lineAt(starts, offset, total) {
   return Math.min(lo, Math.max(0, total));
 }
 function countBreaks(s) {
-  let n = 0;
-  BREAK_RE.lastIndex = 0;
-  while (BREAK_RE.exec(s) !== null) n++;
-  return n;
+  return (s.match(breakRe()) || []).length;
 }
 function stripBreak(s) {
   return s.replace(/(\r\n|\r|\n)$/, '');
@@ -377,7 +364,6 @@ function compareTokens(aText, bText, o, gran) {
   const bStarts = lineStarts(bText);
   const blocks = [];
   const stats = emptyStats();
-  const rowsOut = [];
 
   // Walk the pieces and cut regions where both sides have a matching line break.
   let region = null;
@@ -405,7 +391,7 @@ function compareTokens(aText, bText, o, gran) {
         if (last && last.t === 'eq' && last.a + last.n === al && last.b + last.n === bl) last.n++;
         else blocks.push({ t: 'eq', a: al, b: bl, n: 1 });
       } else {
-        blocks.push({ t: 'x', row: { al, an, bl, bn, at: stripBreak(aSlice), bt: stripBreak(bSlice), segs: null } });
+        blocks.push({ t: 'context', row: { al, an, bl, bn, at: stripBreak(aSlice), bt: stripBreak(bSlice), segs: null } });
       }
       return;
     }
@@ -420,17 +406,9 @@ function compareTokens(aText, bText, o, gran) {
     if (an && bn) stats.linesChanged += Math.max(an, bn);
     else if (an) stats.linesRemoved += an;
     else stats.linesAdded += bn;
-    rowsOut.push(row);
   };
 
-  const breaks = (s, from, to) => {
-    const out = [];
-    BREAK_RE.lastIndex = 0;
-    const sub = s.slice(from, to);
-    let m;
-    while ((m = BREAK_RE.exec(sub)) !== null) out.push(from + m.index + m[0].length);
-    return out;
-  };
+  const breaks = (s, from, to) => Array.from(s.slice(from, to).matchAll(breakRe()), (m) => from + m.index + m[0].length);
 
   for (const p of r.pieces) {
     if (p[0] !== 0) { addPiece(p); continue; }
@@ -457,7 +435,7 @@ function compareTokens(aText, bText, o, gran) {
   stats.wordsA = r.words.a;
   stats.wordsB = r.words.b;
   const sim = pct(r.words.a, r.words.b, r.words.removed, r.words.added);
-  stats.similarity = sim === null ? (stats.changes === 0 ? 100 : 0) : sim;
+  stats.similarity = sim;
 
   const notes = [];
   eolNotes(A, B, o, notes);
@@ -468,8 +446,13 @@ function compareTokens(aText, bText, o, gran) {
 /**
  * Compare two texts. Returns a result model:
  * { mode, aLines, bLines, blocks, stats, notes, approximate, state, ignored, aEmpty, bEmpty, switched }
- * blocks: { t:'eq', a, b, n } | { t:'chg', rows } | { t:'ign', side, i } | { t:'x', row }
- * row: { al, an, bl, bn, at, bt, segs } with segs = [[type, aStart, aEnd, bStart, bEnd], ...] (type 0 equal, 1 deleted, 2 added)
+ * blocks: { t:'eq', a, b, n }       lines equal on both sides (a, b: first line index on each side, n: how many)
+ *         | { t:'chg', rows }        one change (a hunk in lines mode)
+ *         | { t:'ign', side, i }     a blank line that has no partner and is ignored by an option
+ *         | { t:'context', row }     equal text on both sides that does not map one line to one line (words and characters modes)
+ * row: { al, an, bl, bn, at, bt, segs }: first line and line count on each side (-1 and 0 if none), the text of each side,
+ *       and segs = [[type, aStart, aEnd, bStart, bEnd], ...] (type 0 equal, 1 deleted, 2 added)
+ * In the page, `ci` is the index of a change and `ci0` the index of the first change group in a row.
  */
 export function compare(aText, bText, optsIn) {
   const o = withDefaults(optsIn);
@@ -503,7 +486,7 @@ export function compare(aText, bText, optsIn) {
   if (aEmpty) res.notes.unshift({ id: 'a-empty', text: 'Original is empty. Everything in Changed shows as added.' });
   if (bEmpty) res.notes.unshift({ id: 'b-empty', text: 'Changed is empty. Everything in Original shows as removed.' });
   if (switched) res.notes.push({ id: 'switched', text: switched });
-  if (res.approximate) res.notes.push({ id: 'approx', text: 'Large change. Result may not be the shortest set of edits. Every change shown is real.' });
+  if (res.approximate) res.notes.push({ id: 'approx', text: 'Large change. The result may not be the shortest set of edits, and it may mark some unchanged text as changed.' });
   if (mode === 'lines' && res.aLines.length + res.bLines.length > 0) {
     const sum = res.aLines.reduce((n, l) => n + l.length, 0) + res.bLines.reduce((n, l) => n + l.length, 0);
     const avg = sum / (res.aLines.length + res.bLines.length);

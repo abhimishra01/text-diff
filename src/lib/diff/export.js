@@ -1,4 +1,5 @@
 // Text exports built from a compare result: unified diff, redline (plain and HTML), stats.
+import { esc } from '../esc.js';
 
 /** Flatten a lines-mode result into diff items: { k: ' ' | '-' | '+', text, a, b }. a and b are 1-based line numbers (0 = none). */
 function lineItems(res) {
@@ -6,10 +7,8 @@ function lineItems(res) {
   for (const b of res.blocks) {
     if (b.t === 'eq') {
       for (let q = 0; q < b.n; q++) items.push({ k: ' ', text: res.aLines[b.a + q], a: b.a + q + 1, b: b.b + q + 1 });
-    } else if (b.t === 'ign') {
-      if (b.side === 'a') items.push({ k: '-', text: res.aLines[b.i], a: b.i + 1, b: 0 });
-      else items.push({ k: '+', text: res.bLines[b.i], a: 0, b: b.i + 1 });
     } else if (b.t === 'chg') {
+      // Blank lines that an option ignores (block 'ign') are left out: they are not differences.
       for (const r of b.rows) if (r.al >= 0) items.push({ k: '-', text: res.aLines[r.al], a: r.al + 1, b: 0 });
       for (const r of b.rows) if (r.bl >= 0) items.push({ k: '+', text: res.bLines[r.bl], a: 0, b: r.bl + 1 });
     }
@@ -98,41 +97,34 @@ function rowParts(row) {
 }
 
 /** Redline as a list of lines, each a list of parts. */
-export function redlineLines(res) {
+function redlineLines(res) {
   const lines = [];
   for (const b of res.blocks) {
     if (b.t === 'eq') {
       for (let q = 0; q < b.n; q++) lines.push([{ t: 0, text: res.aLines[b.a + q] }]);
     } else if (b.t === 'ign') {
-      lines.push([{ t: b.side === 'a' ? 1 : 2, text: (b.side === 'a' ? res.aLines : res.bLines)[b.i] }]);
-    } else if (b.t === 'x') {
+      if (b.side === 'a') lines.push([{ t: 0, text: res.aLines[b.i] }]); // a blank line that an option ignores
+    } else if (b.t === 'context') {
       lines.push([{ t: 0, text: b.row.at }]);
     } else {
-      const rows = b.rows;
-      if (res.mode === 'lines') {
-        // paired rows keep their place; removed lines come before added lines
-        for (const r of rows) lines.push(rowParts(r));
-      } else {
-        for (const r of rows) lines.push(rowParts(r));
-      }
+      for (const r of b.rows) lines.push(rowParts(r));
     }
   }
   return lines;
 }
 
-const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
 /** { plain, html }: plain uses [-removed-]{+added+}; html uses <del> and <ins> with inline styles. */
 export function redline(res) {
   const lines = redlineLines(res);
   const plain = lines.map((parts) => parts.map((p) => (p.t === 0 ? p.text : p.t === 1 ? `[-${p.text}-]` : `{+${p.text}+}`)).join('')).join('\n');
+  // <s> and <u> go inside <del> and <ins> because every editor knows them. No font is forced, so the text takes the font of the page it lands in.
   const DEL_STYLE = 'color:#b42318;background:#fee4e2;text-decoration:line-through;';
   const INS_STYLE = 'color:#067647;background:#d1fadf;text-decoration:underline;';
-  const html = '<div style="font-family:Consolas,Menlo,monospace;font-size:14px;line-height:1.5;">' + lines.map((parts) => {
+  const html = '<div>' + lines.map((parts) => {
     const inner = parts.map((p) => {
       const t = esc(p.text).replace(/\r\n|\r|\n/g, '<br>').replace(/ {2,}/g, (m) => '&nbsp;'.repeat(m.length - 1) + ' ').replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;');
       if (p.t === 0) return t;
-      return p.t === 1 ? `<del style="${DEL_STYLE}">${t}</del>` : `<ins style="${INS_STYLE}">${t}</ins>`;
+      return p.t === 1 ? `<del style="${DEL_STYLE}"><s>${t}</s></del>` : `<ins style="${INS_STYLE}"><u>${t}</u></ins>`;
     }).join('');
     return `<p style="margin:0;">${inner || '&nbsp;'}</p>`;
   }).join('') + '</div>';
@@ -148,7 +140,7 @@ export function statsText(res) {
     `${plural(s.wordsAdded, 'word')} added, ${s.wordsRemoved} removed`,
     `${plural(s.charsAdded, 'character')} added, ${s.charsRemoved} removed`,
     `Lines: ${s.linesAdded} added, ${s.linesRemoved} removed, ${s.linesChanged} changed`,
-    `Similarity ${s.similarity} percent`,
   ];
+  if (s.similarity !== null) parts.push(`Similarity ${s.similarity} percent`);
   return parts.join('. ') + '.';
 }

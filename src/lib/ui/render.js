@@ -1,14 +1,14 @@
 // HTML builders for the result views. Pure functions: no DOM access, so node can test them.
 import { hiddenParts } from '../diff/unicode-names.js';
+import { esc } from '../esc.js';
 
-export const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 const RUN = 8; // runs of the same hidden character longer than this collapse
 const LONG = 1400; // unchanged text longer than this is folded in the middle
 const KEEP = 300;
 
 /** Text with optional hidden-character marks. */
-export function fragHtml(text, hidden) {
+function fragHtml(text, hidden) {
   if (!text) return '';
   if (!hidden) return esc(text);
   let out = '';
@@ -39,7 +39,7 @@ export function fragHtml(text, hidden) {
  * Render text split into ranges. ranges: [[start, end, pieceIndex or -1, kind]]
  * kind: 'del' | 'ins' for marked ranges. `expandKey` is the entry index for the "show more" button.
  */
-export function rangesHtml(text, ranges, hidden, expandKey, expanded, ci0) {
+function rangesHtml(text, ranges, hidden, expandKey, expanded, ci0) {
   let out = '';
   for (const [s, e, p, kind, gi, small] of ranges) {
     const part = text.slice(s, e);
@@ -59,7 +59,7 @@ export function rangesHtml(text, ranges, hidden, expandKey, expanded, ci0) {
 }
 
 /** Ranges for one side from a row's segs. side: 'a' | 'b'. */
-export function sideRanges(segs, side, row) {
+function sideRanges(segs, side, row) {
   const out = [];
   let gi = -1;
   let inGroup = false;
@@ -73,14 +73,14 @@ export function sideRanges(segs, side, row) {
 }
 
 /** A change of 1 to 3 characters can be inspected. */
-export function isSmall(row, i) {
+function isSmall(row, i) {
   const g = groupTexts(row, i);
   if (!g || (!g.x && !g.y)) return false;
   return Array.from(g.x).length <= 3 && Array.from(g.y).length <= 3;
 }
 
 /** Number of change groups in a row. */
-export function groupCount(segs) {
+function groupCount(segs) {
   let n = 0;
   let inGroup = false;
   for (const p of segs) {
@@ -153,8 +153,8 @@ export function flatten(res, view, hide, folds, ctx = 3) {
       }
     } else if (b.t === 'ign') {
       entries.push({ k: 'ign', side: b.side, i: b.i });
-    } else if (b.t === 'x') {
-      entries.push({ k: 'x', row: b.row });
+    } else if (b.t === 'context') {
+      entries.push({ k: 'context', row: b.row });
     } else {
       const first = entries.length;
       if (lines) {
@@ -206,7 +206,7 @@ export function entryHtml(res, e, idx, view, hidden, expanded) {
       if (view === 'unified') return `<div class="row u ign" title="Ignored blank line"><span class="ln">${e.side === 'a' ? e.i + 1 : ''}</span><span class="ln">${e.side === 'b' ? e.i + 1 : ''}</span><span class="sg" aria-hidden="true"> </span><span class="tx" dir="auto">${t}</span></div>`;
       return `<div class="row ign" title="Ignored blank line"><div class="cell ${e.side === 'a' ? '' : 'none'}"><span class="ln">${e.side === 'a' ? e.i + 1 : ''}</span><span class="tx" dir="auto">${e.side === 'a' ? t : ''}</span></div><div class="cell ${e.side === 'b' ? '' : 'none'}"><span class="ln">${e.side === 'b' ? e.i + 1 : ''}</span><span class="tx" dir="auto">${e.side === 'b' ? t : ''}</span></div></div>`;
     }
-    case 'x': {
+    case 'context': {
       const r = e.row;
       const ta = fragHtml(r.at, hidden) || '​';
       const tb = fragHtml(r.bt, hidden) || '​';

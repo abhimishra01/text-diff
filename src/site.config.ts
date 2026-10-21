@@ -5,8 +5,6 @@ const cfg = {
   domain: 'bingemind.com/text-diff',            // no https://, no www. Used for canonical, sitemap, robots
   cloudflareProject: 'text-diff',    // Cloudflare Pages project name (used by npm run deploy)
   keyword: 'text diff checker',            // main keyword: goes in the H1 and title
-  keywords: ['compare two texts online', 'text compare', 'find difference between two texts', 'diff checker', 'compare text ignore whitespace', 'hidden characters finder'], // supporting keywords
-  tagline: 'Free, no limits, stays in your browser',  // short line shown in the pill above the H1
   description:
     'Paste two texts and see every difference by line, word or character. Ignore whitespace and case. Your text stays in your browser. Free, no sign-up.',
   email: '',       // contact email (shown on the Contact, Privacy and Terms pages)
