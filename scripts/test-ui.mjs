@@ -114,7 +114,7 @@ await page.evaluate(() => localStorage.clear());
 await page.reload();
 await page.waitForSelector('#tool');
 await check('empty state shows the steps', async () => { assert.match(await page.textContent('#empty'), /Paste the original/); });
-await check('sample compare', async () => { await page.click('#btn-sample'); await page.waitForFunction(() => /change/.test(document.getElementById('summary').textContent)); assert.match(await summary(), /1 change\./); });
+await check('sample compare', async () => { await page.click('#btn-sample'); await page.waitForFunction(() => /change/.test(document.getElementById('summary').textContent)); assert.match(await summary(), /^1 change/); });
 await check('result is above the fold at 1280x800', async () => {
   const top = await page.evaluate(() => document.getElementById('list').getBoundingClientRect().top);
   assert.ok(top < 560, 'list top ' + top);
@@ -252,7 +252,7 @@ await check('S3: one 2 MB line, one changed character, folded and expandable', a
   await page.click('input[name=mode][value=lines]', { force: true });
   const base = 'abcdefghij '.repeat(190000);
   const t = await pasteBig(base, base.slice(0, 1000000) + 'X' + base.slice(1000001));
-  assert.match(t, /^1 change\./);
+  assert.match(t, /^1 change/);
   assert.ok(await page.locator('#large-a').isVisible(), 'large text tag');
   assert.ok(await page.locator('#vrows .more').count() > 0, 'fold button');
   await page.locator('#vrows .more').first().click(); await settle();
@@ -263,7 +263,7 @@ await check('S1: 100k lines, 1,000 changes, first paint under 2 s', async () => 
   const t0 = Date.now();
   const t = await pasteBig(mk(false), mk(true));
   const ms = Date.now() - t0;
-  assert.match(t, /^1,000 changes\./);
+  assert.match(t, /^1,000 changes/);
   assert.ok(ms < 2000, 'took ' + ms + ' ms');
   for (const view of ['unified', 'inline']) { await page.click(`input[name=view][value=${view}]`, { force: true }); await settle(); assert.ok(await page.locator('#vrows .row').count() > 0); }
   await page.click('input[name=view][value=split]', { force: true });
@@ -358,6 +358,32 @@ await check('characters mode summary counts words, not letters', async () => {
   await page.click('input[name=mode][value=chars]', { force: true }); await settle();
   assert.match(await summary(), /0 words added, 1 removed/);
 });
+await check('banner when only hidden characters differ, and Inspect works without picking a change first', async () => {
+  await page.click('#btn-clear'); await settle();
+  await fill('a\u00a0b', 'a b');
+  await page.click('input[name=mode][value=lines]', { force: true }); await settle();
+  assert.ok(await page.locator('#hidden-banner').isVisible(), 'banner');
+  assert.match(await page.textContent('#hidden-banner'), /differ only in spaces, special characters or invisible/);
+  await page.click('#banner-go'); await page.waitForSelector('#inspector:not([hidden])', { timeout: 2000 });
+  assert.equal(await page.isChecked('#tog-hidden'), true);
+  assert.match(await page.textContent('#inspector'), /No-break space/);
+  await page.keyboard.press('Escape');
+  await page.uncheck('#tog-hidden');
+  await fill('cat', 'dog');
+  assert.equal(await page.locator('#hidden-banner').isVisible(), false);
+  assert.equal(await page.isDisabled('#btn-inspect'), false);
+});
+await check('navigator says No changes when there are no differences; singular words and lines', async () => {
+  await fill('one change', 'one change');
+  assert.equal((await page.textContent('#counter')).trim(), 'No changes');
+  await page.fill('#ta-a', 'word'); await page.fill('#ta-b', 'word'); await settle(); await page.waitForTimeout(250);
+  assert.match(await page.textContent('#cnt-a'), /^1 line, 1 word, 4 characters$/);
+  await fill('a\nb\nc\nd', 'a\nB\nC\nd');
+  assert.match(await summary(), /^1 change \(2 lines\)\./);
+});
+await check('privacy line sits next to the tool', async () => {
+  assert.match(await page.textContent('h1 + p'), /Your text never leaves this browser/);
+});
 await check('no console errors or warnings', async () => { assert.deepEqual(consoleProblems, []); });
 
 // ---- layout
@@ -393,6 +419,19 @@ await check('phone: every visible button and control is at least 44 px tall', as
   });
   await p.close();
   assert.deepEqual(small, []);
+});
+await check('phone 390: Unified by default, View buttons fit, text boxes are 16 px', async () => {
+  const c = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const p = await c.newPage();
+  await p.goto(base); await p.waitForSelector('#tool');
+  assert.equal(await p.inputValue('input[name=view]:checked'), 'unified');
+  const m = await p.evaluate(() => {
+    const labels = [...document.querySelectorAll('input[name=view]')].map((i) => i.closest('label').getBoundingClientRect());
+    return { right: Math.max(...labels.map((r) => r.right)), left: Math.min(...labels.map((r) => r.left)), font: getComputedStyle(document.getElementById('ta-a')).fontSize };
+  });
+  await c.close();
+  assert.ok(m.right <= 390 && m.left >= 0, `View buttons span ${m.left} to ${m.right}`);
+  assert.equal(m.font, '16px');
 });
 await check('dark mode has no errors', async () => {
   const c2 = await browser.newContext({ colorScheme: 'dark', viewport: { width: 1280, height: 800 } });

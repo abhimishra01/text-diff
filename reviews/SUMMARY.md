@@ -42,3 +42,14 @@ Source: the six reports in this folder (4 code lenses, design and SEO, mock cust
 - Test the redline paste in Word, Google Docs and Gmail, then keep or change the article line about the marks.
 - Decide on the nice items above.
 - The first 7 commits lack the Co-Authored-By trailer (history rewrite was blocked); later commits have it.
+
+## Gap fix (Bruce, 2026-10-21, from comparison/text-diff.md)
+Done:
+- Phone: Unified is the default view up to 640 px. The toolbar wraps to full-width rows, so Compare by and View never clip at 390. Text boxes are 16 px on phones (no iOS zoom). Tests: default view, View buttons inside 390 px, 16 px font.
+- Finer marks in Lines mode: a replace of the same number of words or spaces is refined pair by pair. `Hello  World` to `hello world` now marks `H`, the extra space and `W` (and `h`, `w`), not the whole line. Test added.
+- Hidden-character banner: when every change is spaces, invisible characters, smart quotes, long dashes or a Unicode form, a banner says so and offers "Show hidden characters". The button turns it on, jumps to the first change and opens the character card. Tests in node (flag) and in the browser.
+- Inspect is enabled whenever there are changes, has a tooltip that says what it does, and finds the first change of 1 to 3 characters (a message if there is none).
+- Navigator reads "No changes" when there are no differences (the stale "1 change" is gone). "1 line", "1 word", "1 character" in the box counters. Summary reads "1 change (6 lines)" in Lines mode.
+- One-line privacy note under the H1: "Your text never leaves this browser. Nothing is uploaded. How to check" (links to the Privacy section).
+Skipped (single-purpose first, and not asked for in this pass): Merge, long-tail landing pages, copy link with the texts in the URL, Prepare menu, mini-map. Launch steps (remove noindex on the real domain, Search Console) are for Barney.
+Status: npm test 55 checks; release gate (`build:bingemind` with browser tests) passes; test:ui passes on dist, dist-bingemind and the Pages build. Screenshots at 1280 and 390, light and dark, viewed.

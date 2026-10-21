@@ -1,7 +1,7 @@
 // The compare engine. Input: two strings and options. Output: a result model the page renders.
 // Runs in a Web Worker, but has no worker or DOM dependency, so node can test it.
 import {
-  withDefaults, normalizeString, countWords, wordTokens, graphemeRanges, K_WORD,
+  DEFAULT_OPTIONS, withDefaults, normalizeString, countWords, wordTokens, graphemeRanges, K_WORD,
 } from './chars.js';
 import { diffInts, EQ, DEL } from './myers.js';
 import { tokenDiff } from './tokens.js';
@@ -158,7 +158,7 @@ function ignoredList(o) {
 
 function emptyStats() {
   return {
-    changes: 0, linesAdded: 0, linesRemoved: 0, linesChanged: 0,
+    changes: 0, linesAdded: 0, linesRemoved: 0, linesChanged: 0, changedLines: 0,
     wordsAdded: 0, wordsRemoved: 0, charsAdded: 0, charsRemoved: 0, similarity: 100,
   };
 }
@@ -319,6 +319,7 @@ function compareLines(aText, bText, o) {
   const wordsB = countWords(bText);
   stats.wordsRemoved = wordsRemoved;
   stats.wordsAdded = wordsAdded;
+  stats.changedLines = stats.linesAdded + stats.linesRemoved + stats.linesChanged;
   const sim = pct(wordsA, wordsB, wordsRemoved, wordsAdded);
   stats.similarity = sim; // null when neither text has words
   stats.wordsA = wordsA;
@@ -442,6 +443,32 @@ function compareTokens(aText, bText, o, gran) {
   return { mode: gran === 'chars' ? 'chars' : 'words', aLines, bLines, blocks, stats, notes, approximate: r.approximate };
 }
 
+// True when every change is made of spaces, invisible characters, smart quotes, long dashes or a different Unicode form.
+const LOOSE = { ...DEFAULT_OPTIONS, nfc: true, quotes: true, nbspzw: true, ws: 'all' };
+function differsOnlyInHiddenChars(res) {
+  let any = false;
+  for (const b of res.blocks) {
+    if (b.t !== 'chg') continue;
+    for (const r of b.rows) {
+      if (!r.segs) return false;
+      let x = '';
+      let y = '';
+      const flush = () => {
+        if (!x && !y) return true;
+        any = true;
+        const ok = normalizeString(x, LOOSE) === normalizeString(y, LOOSE);
+        x = ''; y = '';
+        return ok;
+      };
+      for (const p of r.segs) {
+        if (p[0] === 0) { if (!flush()) return false; } else if (p[0] === 1) x += r.at.slice(p[1], p[2]); else y += r.bt.slice(p[3], p[4]);
+      }
+      if (!flush()) return false;
+    }
+  }
+  return any;
+}
+
 // ---- entry point
 /**
  * Compare two texts. Returns a result model:
@@ -492,6 +519,7 @@ export function compare(aText, bText, optsIn) {
     const avg = sum / (res.aLines.length + res.bLines.length);
     if (avg > 200) res.notes.push({ id: 'long-lines', text: 'Long lines. Try Words mode for a cleaner view.', suggestMode: 'words' });
   }
+  res.hiddenOnly = res.state === 'changed' && differsOnlyInHiddenChars(res);
   res.options = o;
   return res;
 }

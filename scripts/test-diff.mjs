@@ -292,6 +292,27 @@ check('redline html uses <s> and <u> and forces no font', () => {
   assert.doesNotMatch(html, /font-family|font-size/);
 });
 
+check('lines mode marks only the changed characters inside a line', () => {
+  const r = C('Hello  World', 'hello world', { mode: 'lines' });
+  eq(changes(r), { del: ['H', ' W'], add: ['h', 'w'] });
+  const q = C('The color is red', 'The colour is red', { mode: 'lines' });
+  eq(changes(q), { del: [], add: ['u'] });
+});
+check('banner flag: only hidden characters differ', () => {
+  eq(C('a' + NBSP + 'b', 'a b').hiddenOnly, true);
+  eq(C('ab', 'a' + ZWSP + 'b').hiddenOnly, true);
+  eq(C(LQ + 'hi' + RQ, '"hi"').hiddenOnly, true);
+  eq(C('cafe\u0301', 'caf\u00e9').hiddenOnly, true);
+  eq(C('Hello  World', 'Hello World').hiddenOnly, true);
+  eq(C('cat', 'dog').hiddenOnly, false);
+  eq(C('a\nb', 'a\nB').hiddenOnly, false);
+  eq(C('same', 'same').hiddenOnly, false);
+});
+check('changed line count for a multi-line change', () => {
+  const r = C('a\nb\nc\nd', 'a\nB\nC\nd');
+  eq([r.stats.changes, r.stats.changedLines], [1, 2]);
+});
+
 // ---- Myers and property tests
 function rng(seed) {
   let s = seed >>> 0;

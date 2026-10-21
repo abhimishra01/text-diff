@@ -204,29 +204,31 @@ export function tokenDiff(aText, bText, o, gran, refine = false, maxD = 3000) {
     // gap before the group (ignored characters)
     const aFirst = dels.length ? origStart(A, dels[0]) : aPos;
     const bFirst = adds.length ? origStart(B, adds[0]) : bPos;
-    // Refine a one-to-one replace of similar tokens at character level.
-    if (refine && gran === 'words' && dels.length === 1 && adds.length === 1) {
-      const da = dels[0];
-      const ad = adds[0];
-      const ka = A.tk.k[da];
-      const kb = B.tk.k[ad];
-      const xs = origStart(A, da), xe = origEnd(A, da);
-      const ys = origStart(B, ad), ye = origEnd(B, ad);
-      if (ka === kb && (ka === K_WORD || ka === K_WS) && xe - xs <= (ka === K_WS ? 50000 : 120) && ye - ys <= (ka === K_WS ? 50000 : 120)) {
-        const x = aText.slice(xs, xe);
-        const y = bText.slice(ys, ye);
-        if (ka === K_WS || lcsRatio(x, y) >= 0.6) {
+    // Refine a replace of the same number of tokens of the same kinds, pair by pair, at character level.
+    // A word pair that is mostly the same ("Hello" and "hello") shows only the changed characters.
+    if (refine && gran === 'words' && dels.length === adds.length && dels.every((t, i) => A.tk.k[t] === B.tk.k[adds[i]] && (A.tk.k[t] === K_WORD || A.tk.k[t] === K_WS))) {
+      const pairs = dels.map((t, i) => [origStart(A, t), origEnd(A, t), origStart(B, adds[i]), origEnd(B, adds[i]), A.tk.k[t]]);
+      const limit = (k) => (k === K_WS ? 50000 : 120);
+      if (pairs.every(([xs, xe, ys, ye, k]) => xe - xs <= limit(k) && ye - ys <= limit(k))) {
+        for (const [xs, xe, ys, ye, k] of pairs) {
           if (xs > aPos || ys > bPos) pieces.push([0, aPos, xs, bPos, ys]);
-          let ca = xs;
-          let cb = ys;
-          for (const p of charPieces(x, y, o)) {
-            if (p[0] === EQ) { pieces.push([0, xs + p[1], xs + p[2], ys + p[3], ys + p[4]]); ca = xs + p[2]; cb = ys + p[4]; }
-            else if (p[0] === DEL) { pieces.push([1, xs + p[1], xs + p[2], cb, cb]); ca = xs + p[2]; }
-            else { pieces.push([2, ca, ca, ys + p[3], ys + p[4]]); cb = ys + p[4]; }
+          const x = aText.slice(xs, xe);
+          const y = bText.slice(ys, ye);
+          if (k === K_WS || lcsRatio(x, y) >= 0.6) {
+            let ca = xs;
+            let cb = ys;
+            for (const p of charPieces(x, y, o)) {
+              if (p[0] === EQ) { pieces.push([0, xs + p[1], xs + p[2], ys + p[3], ys + p[4]]); ca = xs + p[2]; cb = ys + p[4]; }
+              else if (p[0] === DEL) { pieces.push([1, xs + p[1], xs + p[2], cb, cb]); ca = xs + p[2]; }
+              else { pieces.push([2, ca, ca, ys + p[3], ys + p[4]]); cb = ys + p[4]; }
+            }
+          } else {
+            pieces.push([1, xs, xe, ys, ys]);
+            pieces.push([2, xe, xe, ys, ye]);
           }
           aPos = xe; bPos = ye;
-          continue;
         }
+        continue;
       }
     }
     if (aFirst > aPos || bFirst > bPos) pieces.push([0, aPos, aFirst, bPos, bFirst]);

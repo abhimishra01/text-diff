@@ -127,7 +127,7 @@ const clean = [
         <button type="button" id="prev" class="btn icon" aria-label="Previous change (p)" disabled>&#8592;</button>
         <span id="counter" class="counter">0 of 0</span>
         <button type="button" id="next" class="btn icon" aria-label="Next change (n)" disabled>&#8594;</button>
-        <button type="button" id="btn-inspect" class="btn small" disabled title="Show the characters in the current change (i)">Inspect</button>
+        <button type="button" id="btn-inspect" class="btn small" disabled title="Opens a card that names the characters in a change of 1 to 3 characters, such as a space, a quote or an accent (key i)">Inspect</button>
       </div>
       <div class="copy" role="group" aria-label="Copy">
         <button type="button" id="copy-diff" class="btn small" disabled>Copy diff</button>
@@ -135,6 +135,7 @@ const clean = [
         <button type="button" id="copy-stats" class="btn small" disabled>Copy stats</button>
       </div>
     </div>
+    <div id="hidden-banner" class="note banner" hidden><span id="banner-text"></span> <button type="button" id="banner-go" class="btn small">Show hidden characters</button></div>
     <div id="notes" class="notes"></div>
     <p id="phone-note" class="note" hidden>Split view scrolls sideways inside its own box. Unified view fits a phone better.</p>
     <p id="compact-note" class="note" hidden>Showing a compact view. Copy and export include everything.</p>
@@ -263,6 +264,7 @@ const clean = [
   #tool .notes { display: flex; flex-direction: column; }
   #tool .note { margin: 0; padding: .4rem .75rem; font-size: .875rem; background: var(--brand-soft); border-bottom: 1px solid var(--line); }
   #tool .note[hidden] { display: none; }
+  #tool .banner { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; font-weight: 600; }
   #tool .progress { display: flex; align-items: center; gap: .75rem; padding: .5rem .75rem; border-bottom: 1px solid var(--line); font-size: .9rem; }
   #tool .progress[hidden] { display: none; }
   #tool .progress .bar { width: 120px; height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--line) 0 30%, var(--brand-ink) 30% 60%, var(--line) 60%); background-size: 200% 100%; animation: td-slide 1.1s linear infinite; }
@@ -338,10 +340,11 @@ const clean = [
     #tool .td-right { margin-left: 0; }
     #tool .toast { bottom: calc(84px + var(--kb, 0px)); }
     #tool .td-line { flex-wrap: wrap; }
-    #tool .td-scroll { display: flex; flex: 1 1 100%; align-items: center; gap: .6rem .9rem; overflow-x: auto; padding-bottom: .4rem; scrollbar-width: thin;
-      background: linear-gradient(to right, var(--paper) 30%, transparent) left / 32px 100% no-repeat local, linear-gradient(to left, var(--paper) 30%, transparent) right / 32px 100% no-repeat local, radial-gradient(farthest-side at 0 50%, rgb(0 0 0 / .22), transparent) left / 12px 100% no-repeat scroll, radial-gradient(farthest-side at 100% 50%, rgb(0 0 0 / .22), transparent) right / 12px 100% no-repeat scroll; }
-    #tool .td-scroll > * { flex: none; }
-    #tool .td-toggles { flex-wrap: nowrap; }
+    #tool .td-scroll { display: flex; flex: 1 1 100%; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; }
+    #tool .seg { flex: 1 1 100%; }
+    #tool .seg label { flex: 1; }
+    #tool .seg span { justify-content: center; padding: 0 .5rem; }
+    #tool .gut, #tool textarea { font-size: 16px; line-height: 22px; }
     #tool .btn.small, #tool .chip, #tool .foldbtn, #tool .more { min-height: 44px; }
     #tool .link { min-height: 44px; display: inline-flex; align-items: center; padding: 0 .25rem; }
     #tool .opts .chk, #tool .opts .rad { min-height: 44px; }

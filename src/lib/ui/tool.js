@@ -18,9 +18,10 @@ if (root) init();
 
 function init() {
   const phoneQuery = window.matchMedia('(max-width: 767px)');
+  const narrowQuery = window.matchMedia('(max-width: 640px)'); // Unified is the default view up to this width
   const state = {
     opts: { ...DEFAULT_OPTIONS },
-    view: phoneQuery.matches ? 'unified' : 'split',
+    view: narrowQuery.matches ? 'unified' : 'split',
     viewChosen: false,
     hidden: false,
     hide: false,
@@ -205,7 +206,7 @@ function init() {
     countTimer = setTimeout(() => {
       for (const [side, id] of [['a', 'cnt-a'], ['b', 'cnt-b']]) {
         const c = countText(textOf(side));
-        $(id).textContent = `${c.lines.toLocaleString('en-US')} lines, ${c.words.toLocaleString('en-US')} words, ${c.chars.toLocaleString('en-US')} characters`;
+        $(id).textContent = `${plural(c.lines, 'line')}, ${plural(c.words, 'word')}, ${plural(c.chars, 'character')}`;
         $('pane-' + side).classList.toggle('is-large', large[side]);
         $('large-' + side).hidden = !large[side];
       }
@@ -312,7 +313,7 @@ function init() {
   }
   const autoView = () => {
     if (state.viewChosen) return;
-    state.view = state.opts.mode === 'lines' ? (phoneQuery.matches ? 'unified' : 'split') : 'inline';
+    state.view = state.opts.mode === 'lines' ? (narrowQuery.matches ? 'unified' : 'split') : 'inline';
   };
   for (const r of document.querySelectorAll('input[name="mode"]')) {
     r.addEventListener('change', () => { state.opts.mode = r.value; autoView(); syncControls(); save(); runCompare(); });
@@ -326,7 +327,7 @@ function init() {
   for (const k of ['ignoreCase', 'ignoreBlank', 'eolEqual', 'finalNewlineEqual', 'nfc', 'quotes', 'nbspzw']) {
     $('opt-' + k).addEventListener('change', (e) => { state.opts[k] = e.target.checked; syncControls(); save(); runCompare(); });
   }
-  $('tog-hidden').addEventListener('change', (e) => { state.hidden = e.target.checked; save(); relayout(); });
+  $('tog-hidden').addEventListener('change', (e) => { state.hidden = e.target.checked; save(); relayout(); renderBanner(); });
   $('tog-hide').addEventListener('change', (e) => { state.hide = e.target.checked; save(); rebuild(false); });
   $('tog-wrap').addEventListener('change', (e) => { state.wrap = e.target.checked; save(); relayout(); });
   $('opt-reset').addEventListener('click', () => {
@@ -349,7 +350,7 @@ function init() {
   btnOpts.addEventListener('click', () => toggleOpts());
   document.addEventListener('click', (e) => {
     if (!optsPanel.hidden && !optsPanel.contains(e.target) && !btnOpts.contains(e.target)) toggleOpts(false);
-    if (!inspector.hidden && !inspector.contains(e.target) && !e.target.closest('mark.can, ins.can, del.can, #btn-inspect')) closeInspector();
+    if (!inspector.hidden && !inspector.contains(e.target) && !e.target.closest('mark.can, ins.can, del.can, #btn-inspect, #banner-go')) closeInspector();
   });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
@@ -412,7 +413,7 @@ function init() {
       ul.innerHTML = res.ignored.map((t) => `<li>${esc(t)}</li>`).join('');
       $('ignored-head').hidden = res.ignored.length === 0;
     } else {
-      summary.textContent = `${plural(s.changes, 'change')}. ${plural(s.wordsAdded, 'word')} added, ${s.wordsRemoved.toLocaleString('en-US')} removed.${s.similarity === null ? '' : ` Similarity ${s.similarity} percent.`}`;
+      summary.textContent = `${plural(s.changes, 'change')}${res.mode === 'lines' && s.changedLines !== s.changes ? ` (${plural(s.changedLines, 'line')})` : ''}. ${plural(s.wordsAdded, 'word')} added, ${s.wordsRemoved.toLocaleString('en-US')} removed.${s.similarity === null ? '' : ` Similarity ${s.similarity} percent.`}`;
     }
     const sl = $('stats-line');
     if (res.state === 'changed') {
@@ -440,6 +441,7 @@ function init() {
     }
     const hasChanges = res.state === 'changed';
     updateCopy();
+    renderBanner();
     const near = $('near-sum');
     near.hidden = res.state === 'empty';
     $('near-text').textContent = res.state === 'changed' ? `${plural(s.changes, 'change')} found.` : 'No differences.';
@@ -448,6 +450,21 @@ function init() {
     for (const id of ['prev', 'next', 'prev-m', 'next-m']) $(id).disabled = !hasChanges;
     phoneNote.hidden = !(phoneQuery.matches && state.view === 'split' && hasChanges);
   }
+
+  function renderBanner() {
+    const res = state.result;
+    const on = !!(res && res.hiddenOnly);
+    $('hidden-banner').hidden = !on;
+    if (!on) return;
+    $('banner-text').textContent = state.hidden
+      ? 'These texts differ only in spaces, special characters or invisible characters. Press Inspect to see which.'
+      : 'These texts differ only in spaces, special characters or invisible characters.';
+    $('banner-go').textContent = state.hidden ? 'Inspect' : 'Show hidden characters';
+  }
+  $('banner-go').addEventListener('click', () => {
+    if (!state.hidden) { state.hidden = true; $('tog-hidden').checked = true; save(); relayout(); renderBanner(); }
+    inspectCurrent();
+  });
 
   // Copy works on the result on screen, so it waits while a new compare is pending or running. Nothing to copy when there are no differences.
   function updateCopy() {
@@ -465,7 +482,7 @@ function init() {
 
   function rebuild(reset) {
     const res = state.result;
-    if (!res || res.state !== 'changed') { rowsEl.innerHTML = ''; rendered = { first: -1, last: -1 }; updateCounter(); return; }
+    if (!res || res.state !== 'changed') { state.flat = { entries: [], changes: [] }; rowsEl.innerHTML = ''; rendered = { first: -1, last: -1 }; updateCounter(); return; }
     state.flat = flatten(res, state.view, state.hide, state.folds);
     const n = state.flat.entries.length;
     state.compact = n > MAX_ROWS_WRAP;
@@ -568,7 +585,7 @@ function init() {
     const txt = total ? (state.cur >= 0 ? `${state.cur + 1} of ${total}` : plural(total, 'change')) : 'No changes';
     counter.textContent = txt;
     $('counter-m').textContent = txt;
-    $('btn-inspect').disabled = !total || state.cur < 0;
+    $('btn-inspect').disabled = !total;
   }
   function markCurrent() {
     for (const el of rowsEl.querySelectorAll('.cur')) el.classList.remove('cur');
@@ -652,11 +669,18 @@ function init() {
     $('insp-close').addEventListener('click', closeInspector);
     inspector.focus();
   }
+  // Opens the card for the current change, or for the first change of 1 to 3 characters after it.
   function inspectCurrent() {
-    const n = state.cur;
-    const el = n >= 0 && rowsEl.querySelector(`.can[data-ci="${n}"], [data-ci="${n}"] .can`);
-    if (el) inspectElement(el);
-    else say(n < 0 ? 'Pick a change with the arrows first.' : 'This change is longer than 3 characters. The card shows changes of 1 to 3 characters.');
+    const total = state.flat.changes.length;
+    if (!total) return;
+    const start = state.cur < 0 ? 0 : state.cur;
+    for (let k = 0; k < Math.min(total, 200); k++) {
+      const n = (start + k) % total;
+      goto(n);
+      const el = rowsEl.querySelector(`.can[data-ci="${n}"], [data-ci="${n}"] .can`);
+      if (el) { inspectElement(el); return; }
+    }
+    say('No change here is 1 to 3 characters long. The card shows those, for example a space or a quote.');
   }
   $('btn-inspect').addEventListener('click', inspectCurrent);
 
@@ -704,7 +728,7 @@ function init() {
     window.visualViewport.addEventListener('scroll', fit);
     fit();
   }
-  phoneQuery.addEventListener && phoneQuery.addEventListener('change', () => { autoView(); syncControls(); rebuild(false); });
+  narrowQuery.addEventListener && narrowQuery.addEventListener('change', () => { autoView(); syncControls(); rebuild(false); });
 
   // ---- start
   root.dataset.busy = '0';
