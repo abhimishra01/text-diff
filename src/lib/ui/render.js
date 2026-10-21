@@ -238,12 +238,12 @@ export function entryHtml(res, e, idx, view, hidden, expanded) {
         let gi = -1;
         let inGroup = false;
         r.segs.forEach((p, i) => {
-          if (p[0] === 0) { inGroup = false; const part = r.at.slice(p[1], p[2]); inner += rangesHtml(part, plain(part), hidden, idx, exp, -1); return; }
+          if (p[0] === 0) { inGroup = false; const part = (r.at || '').slice(p[1], p[2]); inner += rangesHtml(part, plain(part), hidden, idx, exp, -1); return; }
           if (!inGroup) { gi++; inGroup = true; }
           const ca = e.ci0 >= 0 ? ` data-ci="${e.ci0 + gi}"` : '';
           const can = isSmall(r, i) ? ' class="can"' : '';
-          if (p[0] === 1) inner += `<del${can} data-p="${i}"${ca}>${fragHtml(r.at.slice(p[1], p[2]), hidden) || '​'}</del>`;
-          else inner += `<ins${can} data-p="${i}"${ca}>${fragHtml(r.bt.slice(p[3], p[4]), hidden) || '​'}</ins>`;
+          if (p[0] === 1) inner += `<del${can} data-p="${i}"${ca}>${fragHtml((r.at || '').slice(p[1], p[2]), hidden) || '​'}</del>`;
+          else inner += `<ins${can} data-p="${i}"${ca}>${fragHtml((r.bt || '').slice(p[3], p[4]), hidden) || '​'}</ins>`;
         });
       } else if (r.at != null && r.bt == null) inner = `<del data-p="-1">${fragHtml(r.at, hidden) || '​'}</del>`;
       else inner = `<ins data-p="-1">${fragHtml(r.bt, hidden) || '​'}</ins>`;

@@ -222,6 +222,23 @@ await check('options are remembered', async () => {
   await page.click('#btn-opts'); assert.equal(await page.isChecked('#opt-ignoreCase'), true);
   await page.uncheck('#opt-ignoreCase'); await page.keyboard.press('Escape');
 });
+await check('a bad saved entry falls back to the defaults', async () => {
+  await page.evaluate(() => localStorage.setItem('bm.textdiff.opts.v1', JSON.stringify({ opts: { mode: 'bogus', ws: 'weird', ignoreCase: 'yes' }, view: 'cube' })));
+  await page.reload(); await page.waitForSelector('#tool');
+  assert.equal(await page.inputValue('input[name=mode]:checked'), 'lines');
+  assert.equal(await page.inputValue('input[name=ws]:checked'), 'off');
+  assert.equal(await page.locator('#chips .chip').count(), 0);
+  await page.evaluate(() => localStorage.removeItem('bm.textdiff.opts.v1'));
+  await page.reload(); await page.waitForSelector('#tool');
+});
+await check('words mode, empty Original, ignore all white space: the added text shows', async () => {
+  await page.click('#btn-opts'); await page.check('input[name=ws][value=all]'); await page.keyboard.press('Escape');
+  await page.click('input[name=mode][value=words]', { force: true });
+  await fill('', ' ...'); await settle();
+  assert.ok((await page.textContent('#vrows')).includes('...'), 'added text is shown');
+  await page.click('#btn-opts'); await page.check('input[name=ws][value=off]'); await page.keyboard.press('Escape');
+  await page.click('input[name=mode][value=lines]', { force: true }); await settle();
+});
 const pasteBig = (a, b) => page.evaluate(async ([a, b]) => {
   const fire = (id, text) => { const ta = document.getElementById(id); const dt = new DataTransfer(); dt.setData('text/plain', text); ta.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })); };
   fire('ta-a', a); fire('ta-b', b);

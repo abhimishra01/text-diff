@@ -7,6 +7,7 @@ import { normalizeString, withDefaults, graphemeRanges, wordTokens, countWords }
 import { unifiedDiff, redline, statsText } from '../src/lib/diff/export.js';
 import { hiddenParts, inspectChange } from '../src/lib/diff/unicode-names.js';
 import { decodeText } from '../src/lib/ui/files.js';
+import { flatten, entryHtml } from '../src/lib/ui/render.js';
 
 let checks = 0;
 let failed = 0;
@@ -399,6 +400,53 @@ check('property: fast word count equals the tokenizer', () => {
     for (let i = 0; i < tk.k.length; i++) if (tk.k[i] === 1) c++;
     eq(countWords(str), c, JSON.stringify(str));
   }
+});
+
+// ---- fixes from the QA sweep
+check('QA: word count counts an emoji with a joiner or selector as no word', () => {
+  for (const [t, n] of [['\u2764\uFE0F', 0], ['\u2764\uFE0F love', 1], [U(0x1F468, 0x200D, 0x1F469, 0x200D, 0x1F467) + ' family', 1], [U(0x1F3F3, 0xFE0F, 0x200D, 0x1F308), 0], ['a\u200Db', 1]]) {
+    eq(countWords(t), n, JSON.stringify(t));
+    const tk = wordTokens(t);
+    let c = 0;
+    for (let i = 0; i < tk.k.length; i++) if (tk.k[i] === 1) c++;
+    eq(countWords(t), c, 'tokenizer ' + JSON.stringify(t));
+  }
+  // The same family emoji on both sides adds no words to a line compare.
+  const f = U(0x1F468, 0x200D, 0x1F469, 0x200D, 0x1F467);
+  const r = C(f + ' a b', f + ' a c');
+  eq([r.stats.wordsAdded, r.stats.wordsRemoved], [1, 1]);
+  eq(r.stats.similarity, 50);
+});
+check('QA: an ellipsis against fewer or more dots keeps the original text whole', () => {
+  const o = { quotes: true };
+  for (const [a, b] of [['wait\u2026', 'wait.'], ['wait\u2026', 'wait..'], ['a \u2026 b', 'a . b'], ['x.', 'x\u2026'], ['\u2026', '..']]) {
+    for (const gran of ['words', 'chars']) {
+      const r = tokenDiff(a, b, withDefaults(o), gran, gran === 'words');
+      let ap = 0, bp = 0;
+      for (const p of r.pieces) { eq([p[1], p[3]], [ap, bp], `${gran} ${JSON.stringify([a, b])}`); ap = p[2]; bp = p[4]; }
+      eq([ap, bp], [a.length, b.length]);
+      assert.ok(r.pieces.some((p) => p[0] !== 0), 'the change is marked');
+    }
+  }
+  eq(C('wait\u2026', 'wait...', { quotes: true }).state, 'identical');
+  eq(C('wait...', 'wait\u2026', { quotes: true, mode: 'words' }).state, 'identical');
+  eq(C('wait\u2026', 'wait...').state, 'changed');
+});
+check('QA: strict final newline diff marks the last line when both sides lack the newline', () => {
+  const r = C('a\nb', 'x\na\nb', { finalNewlineEqual: false });
+  eq(unifiedDiff(r), ['--- original', '+++ changed', '@@ -1,2 +1,3 @@', '+x', ' a', ' b', '\\ No newline at end of file'].join('\n'));
+});
+check('QA: inline view with an empty Original and ignored white space does not throw', () => {
+  const r = C('', ' ...', { mode: 'words', ws: 'all' });
+  const fl = flatten(r, 'inline', false, new Set());
+  fl.entries.forEach((e, i) => entryHtml(r, e, i, 'inline', false, new Set()));
+  const r2 = C(' ...', '', { mode: 'chars', ws: 'all' });
+  flatten(r2, 'inline', true, new Set()).entries.forEach((e, i) => entryHtml(r2, e, i, 'inline', true, new Set()));
+});
+check('QA: redline html keeps an added or removed empty line', () => {
+  const { html } = redline(C('a\nb', 'a\n\nb'));
+  assert.doesNotMatch(html, /<u><\/u>/);
+  assert.match(html, /<ins[^>]*><u>&nbsp;<\/u><\/ins>/);
 });
 
 // ---- section 5.2 size and speed

@@ -37,7 +37,16 @@ function init() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
     if (saved && typeof saved === 'object') {
-      if (saved.opts) state.opts = { ...DEFAULT_OPTIONS, ...saved.opts };
+      if (saved.opts) {
+        // Keep only values the page understands, so a stale or edited entry cannot break the page.
+        const o = { ...DEFAULT_OPTIONS };
+        for (const k of Object.keys(DEFAULT_OPTIONS)) {
+          if (typeof saved.opts[k] === typeof DEFAULT_OPTIONS[k]) o[k] = saved.opts[k];
+        }
+        if (!['lines', 'words', 'chars'].includes(o.mode)) o.mode = DEFAULT_OPTIONS.mode;
+        if (!['off', 'trim', 'collapse', 'all'].includes(o.ws)) o.ws = DEFAULT_OPTIONS.ws;
+        state.opts = o;
+      }
       if (['split', 'unified', 'inline'].includes(saved.view)) { state.view = saved.view; state.viewChosen = !!saved.viewChosen; }
       state.hidden = !!saved.hidden;
       state.hide = !!saved.hide;

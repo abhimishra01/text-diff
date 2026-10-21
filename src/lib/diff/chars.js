@@ -22,14 +22,13 @@ const ZW_ONE = /[\u200B\u200C\u200D\u2060\uFEFF\u00AD\u200E\u200F]/;
 const NBSP_CLASS = '[\\u00A0\\u202F\\u2007\\u2009\\u200A\\u2008\\u2005\\u2004\\u2003\\u2002\\u2006\\u205F\\u3000\\u1680]';
 const NBSP_RE = new RegExp(NBSP_CLASS, 'g');
 const NBSP_ONE = new RegExp('^' + NBSP_CLASS + '$');
-const QUOTE_RE = /[\u2018\u2019\u201A\u201B\u2032\u201C\u201D\u201E\u201F\u2033\u2010\u2011\u2012\u2013\u2014\u2015\u2212\u2026]/g;
-const QUOTE_ONE = /[\u2018\u2019\u201A\u201B\u2032\u201C\u201D\u201E\u201F\u2033\u2010\u2011\u2012\u2013\u2014\u2015\u2212\u2026]/;
+const QUOTE_RE = /[\u2018\u2019\u201A\u201B\u2032\u201C\u201D\u201E\u201F\u2033\u2010\u2011\u2012\u2013\u2014\u2015\u2212]/g;
+const QUOTE_ONE = /[\u2018\u2019\u201A\u201B\u2032\u201C\u201D\u201E\u201F\u2033\u2010\u2011\u2012\u2013\u2014\u2015\u2212]/;
 
 function quoteMap(ch) {
   switch (ch) {
     case '\u2018': case '\u2019': case '\u201A': case '\u201B': case '\u2032': return "'";
     case '\u201C': case '\u201D': case '\u201E': case '\u201F': case '\u2033': return '"';
-    case '\u2026': return '...';
     default: return '-'; // hyphens, dashes, minus
   }
 }
@@ -37,7 +36,9 @@ function quoteMap(ch) {
 /** Character-level cleaning that does not depend on whitespace modes. */
 function cleanChars(s, o) {
   if (o.nbspzw) s = s.replace(ZW_RE, '').replace(NBSP_RE, ' ');
-  if (o.quotes) s = s.replace(QUOTE_RE, quoteMap);
+  // Three dots and the ellipsis count as the same. The plain form is the single ellipsis character, so every cleaned unit
+  // still maps to one stretch of the original text (cleanWithMap does the same for the position map).
+  if (o.quotes) s = s.replace(QUOTE_RE, quoteMap).replace(/\.\.\./g, '\u2026');
   if (o.nfc) s = s.normalize('NFC');
   if (o.ignoreCase) s = s.toLowerCase();
   return s;
@@ -74,6 +75,12 @@ export function cleanWithMap(s, o) {
       if (NBSP_ONE.test(ch)) rep = ' ';
     }
     if (o.quotes && QUOTE_ONE.test(rep)) rep = quoteMap(rep);
+    if (o.quotes && rep === '.' && s.charCodeAt(i + 1) === 46 && s.charCodeAt(i + 2) === 46) {
+      ms.push(i); me.push(i + 3);
+      out += '\u2026';
+      i += 3;
+      continue;
+    }
     for (let k = 0; k < rep.length; k++) { ms.push(i); me.push(i + len); }
     out += rep;
     i += len;
@@ -138,6 +145,7 @@ const TOKEN_RE = new RegExp(
   `(${WORD_CLASS}+(?:['\\u2019]${WORD_CLASS}+)*)|(\\r\\n|\\n|\\r)|([^\\S\\r\\n]+)|(\\p{Regional_Indicator}{2}|${PICT}|[^\\s]\\p{M}*)`,
   'gu',
 );
+const EMOJI_JOINER = /[\u200D\uFE0F]/;
 const SEGMENTER_SCRIPTS = /[\u0E00-\u0EFF\u1000-\u109F\u1780-\u17FF\u3040-\u30FF\u3400-\u4DBF\u4E00-\u9FFF]/;
 
 /**
@@ -210,6 +218,17 @@ export function countWords(text) {
     const t = wordTokens(text);
     let n = 0;
     for (let i = 0; i < t.k.length; i++) if (t.k[i] === K_WORD) n++;
+    return n;
+  }
+  if (EMOJI_JOINER.test(text)) {
+    // A joiner or a variation selector can be part of an emoji (a family, a heart) or part of a word. Only the tokenizer knows which.
+    let n = 0;
+    let m;
+    TOKEN_RE.lastIndex = 0;
+    while ((m = TOKEN_RE.exec(text)) !== null) {
+      if (m[0].length === 0) { TOKEN_RE.lastIndex++; continue; }
+      if (m[1]) n++;
+    }
     return n;
   }
   let n = 0;

@@ -60,6 +60,8 @@ export function unifiedDiff(res, context = 3) {
       if (strictFinal) {
         if (it.k === '-' && it.a === lastA && !res.aFinal) body.push('\\ No newline at end of file');
         if (it.k === '+' && it.b === lastB && !res.bFinal) body.push('\\ No newline at end of file');
+        // A last line that is the same on both sides, and has no newline on either side, needs the mark too, or `patch` rejects the diff.
+        if (it.k === ' ' && it.a === lastA && it.b === lastB && !res.aFinal && !res.bFinal) body.push('\\ No newline at end of file');
       }
     }
     if (!aStart) {
@@ -122,7 +124,8 @@ export function redline(res) {
   const INS_STYLE = 'color:#067647;background:#d1fadf;text-decoration:underline;';
   const html = '<div>' + lines.map((parts) => {
     const inner = parts.map((p) => {
-      const t = esc(p.text).replace(/\r\n|\r|\n/g, '<br>').replace(/ {2,}/g, (m) => '&nbsp;'.repeat(m.length - 1) + ' ').replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;');
+      // An added or removed empty line has no text. A non-breaking space keeps its line from collapsing.
+      const t = (p.text === '' && p.t !== 0 ? '&nbsp;' : esc(p.text)).replace(/\r\n|\r|\n/g, '<br>').replace(/ {2,}/g, (m) => '&nbsp;'.repeat(m.length - 1) + ' ').replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;');
       if (p.t === 0) return t;
       return p.t === 1 ? `<del style="${DEL_STYLE}"><s>${t}</s></del>` : `<ins style="${INS_STYLE}"><u>${t}</u></ins>`;
     }).join('');
