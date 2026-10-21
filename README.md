@@ -1,49 +1,37 @@
-# Microtool site template
+# Text Diff Checker
 
-Astro (static) + Tailwind 4. One config file: `src/site.config.ts`. No backend.
+A free browser tool that compares two texts by line, word or character. It runs fully in the browser: the compare happens in a Web Worker, and no request carries the text. Astro (static) and Tailwind 4. Published as part of Bingemind at https://bingemind.com/text-diff/.
 
-## Make a new tool
+## Commands
 
 ```
-cd ~/Desktop/personal/microtools
-template/scripts/new-tool.sh my-tool mytool.com
-cd sites/my-tool && npm run dev
+npm run dev            # work on the site (port 4321, or pass --port)
+npm test               # known-answer and property tests for the compare engine
+npm run build          # build to dist/
+npm run build:bingemind  # tests, then build to dist-bingemind/ for bingemind.com/text-diff/
+npm run test:ui        # browser tests (needs a build, Google Chrome and playwright-core)
 ```
 
-Then edit, in this order:
-1. `src/site.config.ts`: name, main keyword, supporting keywords, description, email, brand colour.
-2. `src/components/Tool.astro`: the real tool (replace the demo; keep the fixed height so the page does not jump).
-3. `src/components/Article.astro`: about 600 words of plain text. Main keyword in the first paragraph and one heading.
-4. `src/data/faq.ts`: 5 to 8 real questions. They also become FAQ schema.
-5. Optional: `public/og.png` (1200x630) and set `ogImage: '/og.png'`.
-6. Check About, Terms and Privacy text still fit the tool.
+## Where the logic lives
 
-Commands: `npm run dev` (work), `npm run build` (make `dist/`), `npm run preview` (check the build), `npm run deploy` (build and upload to Cloudflare Pages).
+| File | What it does |
+|---|---|
+| `src/lib/diff/myers.js` | Myers diff on integer arrays, with a cost cap and an approximate fallback (anchors, then a furthest-point split) |
+| `src/lib/diff/chars.js` | Options, character cleaning, tokens (words, graphemes with `Intl.Segmenter`) |
+| `src/lib/diff/tokens.js` | Word and character diff with ranges that point back into the original text |
+| `src/lib/diff/compare.js` | Lines, words and characters modes, line pairing, stats, notes |
+| `src/lib/diff/export.js` | Unified diff, redline (plain and HTML), stats text |
+| `src/lib/diff/unicode-names.js` | Small table of look-alike characters, hidden-character parts, inspector reasons |
+| `src/lib/diff/worker.js` | Worker wrapper |
+| `src/lib/ui/render.js` | HTML for the split, unified and inline views, and the entry list for the virtual list |
+| `src/lib/ui/tool.js` | Page behavior: panes, options, worker, virtual list, copy, inspector |
+| `scripts/test-diff.mjs` | Tests T1 to T27, S1 to S4 and S7 from the spec, plus property tests |
+| `scripts/test-ui.mjs` | Browser tests: no request carries the text, controls, layout at 5 widths |
 
-## Go live (plain steps)
+## Notes
 
-1. **Buy the domain** after the tool works. `.com`, 1 year, auto-renew off. Put it in `site.config.ts` as `domain` (no `www`, no `https://`). Rebuild.
-2. **Cloudflare**: add the domain to Cloudflare (free plan) and change the nameservers at the registrar.
-3. **First deploy**: run `npx wrangler login` once (you do this, in your browser). Then `npm run deploy`. The first run asks to create the Pages project; use the same name as `cloudflareProject` in the config.
-4. **Custom domain**: Cloudflare dashboard > Workers & Pages > your project > Custom domains. Add `mytool.com` and `www.mytool.com`. Then add a redirect rule from `www` to the bare domain (or the reverse) so only one version exists.
-5. **No duplicate in Google**: `public/_headers` already sets `X-Robots-Tag: noindex` for the `*.pages.dev` address only. Check it: `curl -sI https://my-tool.pages.dev | grep -i robots` shows noindex; the custom domain does not.
-6. **Google Search Console**: add the domain property, verify with the DNS TXT record in Cloudflare, submit `https://mytool.com/sitemap-index.xml`, request indexing of the home page.
-7. **Bing Webmaster Tools**: sign in, import from Search Console.
-8. **Google Analytics**: create a GA4 property, copy the measurement ID (`G-...`) to `ga4` in the config, rebuild, deploy. Empty means off.
-9. **AdSense (later, about 10 visits a day or more)**: apply with the site. When approved, put the publisher ID (`ca-pub-...`) in `adsense`. The build then adds the script and writes `/ads.txt`. Set up the consent message in AdSense (Privacy & messaging) for EU/UK visitors. Then switch on Auto ads. A first rejection is normal; improve content and apply again.
-10. Share the tool on Reddit, Quora and social. Rankings take 4 to 6 months. Keep the domain at least a year.
-
-## How things work
-
-- **Dark mode**: follows the system, the toggle saves the choice. A tiny inline script sets it before paint, so there is no flash.
-- **SEO**: title, description, canonical (real domain), Open Graph, Twitter, `WebApplication` and `FAQPage` JSON-LD are in `src/layouts/Base.astro` and `src/pages/index.astro`.
-- **Sitemap and robots**: `@astrojs/sitemap` makes `/sitemap-index.xml`; `/robots.txt` points to it. The 404 page is excluded.
-- **ads.txt**: generated from `adsense`. Empty ID gives a comment line only.
-- **Favicon**: `/favicon.svg` is made from the first letter of the name and the brand colour (`src/pages/favicon.svg.ts`). To use your own, put a file at `public/favicon.svg` and delete that `.ts` file. For Apple and old browsers add `public/apple-touch-icon.png` (180x180) and a `<link rel="apple-touch-icon">` line in `Base.astro`.
-- **GA4 and AdSense** load only when their IDs are set (`src/components/Analytics.astro`). These are the only outside requests.
-- **Fonts**: system font stack, no downloads.
-- **Deploy script**: `scripts/deploy.mjs` reads `cloudflareProject` and runs `wrangler pages deploy dist`. It needs Node 22.6 or newer.
-
-## Legal pages
-
-The About, Terms and Privacy pages are good starting text, not legal advice. Read them before you launch and edit what does not match your tool.
+- The page keeps only the options and the theme choice in `localStorage` (`bm.textdiff.opts.v1`). It never saves the texts.
+- A textarea turns CRLF and CR into LF. An opened file keeps its exact text in memory so the line ending notes work.
+- Text over 600,000 characters is kept in memory and the box shows a read-only preview. This keeps typing fast.
+- Set `SITE_MODE=bingemind` for the bingemind.com build. `PAGES_BASE` and `PAGES_SITE` build the GitHub Pages copy (noindex).
+- Libraries: none at run time. The diff engine is our own code.

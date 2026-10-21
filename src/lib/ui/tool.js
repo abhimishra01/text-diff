@@ -1,7 +1,7 @@
 // Page logic for the Text Diff Checker: panes, options, worker, virtual result list, copy, inspector.
 import { redline, unifiedDiff, statsText } from '../diff/export.js';
 import { DEFAULT_OPTIONS } from '../diff/chars.js';
-import { inspectChange } from '../diff/unicode-names.js';
+import { inspectChange, isHidden } from '../diff/unicode-names.js';
 import { flatten, entryHtml, groupTexts, esc } from './render.js';
 import { SAMPLE_A, SAMPLE_B } from './sample.js';
 
@@ -609,10 +609,10 @@ function init() {
 
   // ---- inspector
   function closeInspector() { inspector.hidden = true; }
-  const glyph = (c) => (c.cp < 32 || c.cp === 0x7f ? '␀' : c.ch);
+  const glyph = (c) => (c.cp === 32 ? '\u2423' : isHidden(c.ch) || c.cp < 32 ? c.short : c.ch);
   function charHtml(list2) {
     if (!list2.length) return '<li class="none">nothing</li>';
-    return list2.map((c) => `<li><span class="g" aria-hidden="true">${esc(glyph(c))}</span> <code>${c.hex}</code> ${esc(c.name || c.short === c.hex ? (c.name || '') : c.short)}</li>`).join('');
+    return list2.map((c) => `<li><span class="g" aria-hidden="true">${esc(glyph(c))}</span> <code>${c.hex}</code> ${c.name ? esc(c.name) : ''}</li>`).join('');
   }
   function inspectElement(el) {
     const entryEl = el.closest('[data-e]');
