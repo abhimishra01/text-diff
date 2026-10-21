@@ -71,6 +71,10 @@ function init() {
   const phoneNote = $('phone-note');
   const panes = $('panes');
 
+  // A textarea turns CRLF and CR into LF. An opened file keeps its exact text here until the user edits that box.
+  const raw = { a: null, b: null };
+  const textOf = (side) => { const ta = side === 'a' ? taA : taB; return raw[side] !== null && raw[side].replace(/\r\n|\r/g, '\n') === ta.value ? raw[side] : ta.value; };
+
   // ---- helpers
   const say = (msg) => {
     toast.textContent = msg;
@@ -96,8 +100,8 @@ function init() {
 
   function runCompare() {
     clearTimeout(debounceTimer);
-    const a = taA.value;
-    const b = taB.value;
+    const a = textOf('a');
+    const b = textOf('b');
     if (!worker) startWorker();
     else if (busy) { worker.terminate(); startWorker(); }
     busy = true;
@@ -163,6 +167,7 @@ function init() {
   }
   function setText(ta, gut, value) {
     ta.value = value;
+    raw[ta === taA ? 'a' : 'b'] = value;
     updateGutter(ta, gut);
     updateCounts();
   }
@@ -218,8 +223,8 @@ function init() {
 
   $('btn-sample').addEventListener('click', () => { setText(taA, gutA, SAMPLE_A); setText(taB, gutB, SAMPLE_B); runCompare(); });
   $('btn-swap').addEventListener('click', () => {
-    const a = taA.value;
-    setText(taA, gutA, taB.value);
+    const a = textOf('a');
+    setText(taA, gutA, textOf('b'));
     setText(taB, gutB, a);
     runCompare();
   });
@@ -619,7 +624,7 @@ function init() {
     if (res.mode === 'lines') { writeClipboard(null, unifiedDiff(res), 'Unified diff copied.'); return; }
     const w = new Worker(new URL('../diff/worker.js', import.meta.url), { type: 'module' });
     w.onmessage = (ev) => { w.terminate(); if (ev.data.error) say('Could not build the diff.'); else writeClipboard(null, ev.data.unified, 'Unified diff copied.'); };
-    w.postMessage({ id: 1, type: 'export', a: taA.value, b: taB.value, options: { ...state.opts } });
+    w.postMessage({ id: 1, type: 'export', a: textOf('a'), b: textOf('b'), options: { ...state.opts } });
   });
 
   // ---- phone bar and keyboard space
@@ -644,6 +649,4 @@ function init() {
   updateGutter(taB, gutB);
   applyResult({ mode: 'lines', aLines: [], bLines: [], blocks: [], stats: { changes: 0, wordsAdded: 0, wordsRemoved: 0, similarity: 100 }, notes: [], ignored: [], state: 'empty' });
 
-  // Test hook: lets browser tests read the current state.
-  window.__textDiff = { state, setTexts: (a, b) => { setText(taA, gutA, a); setText(taB, gutB, b); runCompare(); } };
 }

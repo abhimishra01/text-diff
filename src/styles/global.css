@@ -72,4 +72,6 @@ body { background: var(--paper); color: var(--ink); font-family: var(--font-sans
 .prose-site h3 + p { margin-top: 0; }
 .prose-site table.plan { max-width: 100%; }
 .prose-site table.plan td:not(:first-child), .prose-site table.plan th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
-.prose-site table.wide td:nth-child(2) { white-space: nowrap; }
+.prose-site table.wide td { overflow-wrap: anywhere; vertical-align: top; }
+@media (max-width: 640px) { .prose-site table.wide { display: block; overflow-x: auto; } .prose-site table.wide td, .prose-site table.wide th { min-width: 7rem; } }
+kbd { font-family: var(--font-mono); font-size: .85em; padding: 1px 6px; border: 1px solid var(--edge); border-radius: 5px; background: var(--card); }

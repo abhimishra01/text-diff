@@ -193,12 +193,12 @@ const clean = [
   #tool .btn.primary:hover:not(:disabled) { filter: brightness(1.1); background: var(--brand-ink); }
   #tool .link { background: none; border: 0; padding: 0; font: inherit; color: var(--brand-ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; min-height: 24px; }
   #tool .td-bar { margin-bottom: .75rem; }
-  #tool .td-line { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem .9rem; }
+  #tool .td-line { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: .6rem .9rem; }
   #tool .td-group { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; }
   #tool .td-toggles { gap: .2rem .9rem; }
   #tool .td-right { margin-left: auto; }
   #tool fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
-  #tool .seg { border: 1px solid var(--edge); border-radius: 10px; background: var(--card); padding: 2px; display: inline-flex; }
+  #tool .seg { position: relative; border: 1px solid var(--edge); border-radius: 10px; background: var(--card); padding: 2px; display: inline-flex; }
   #tool .seg label { position: relative; display: block; }
   #tool .seg input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
   #tool .seg span { display: flex; align-items: center; min-height: 40px; padding: 0 .85rem; border-radius: 8px; font-size: .9375rem; font-weight: 600; color: var(--muted); }
