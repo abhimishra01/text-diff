@@ -59,17 +59,18 @@ page.on('request', (r) => requests.push({ url: r.url(), headers: r.headers(), bo
 const base = `http://127.0.0.1:${PORT}${BASE}`;
 await page.goto(base);
 await page.waitForSelector('#tool');
-const fill = async (a, b) => { await page.fill('#ta-a', a); await page.fill('#ta-b', b); await page.click('#btn-compare'); await page.waitForTimeout(350); };
+const fill = async (a, b) => { await page.fill('#ta-a', a); await page.fill('#ta-b', b); await page.click('#btn-compare'); await settle(); };
+const settle = async () => { await page.waitForFunction(() => document.getElementById('tool').dataset.busy === '0'); await page.waitForTimeout(80); };
 const summary = () => page.textContent('#summary');
 
 // ---- 5.4 privacy: no request carries the text
 await check('privacy: nothing leaves the page', async () => {
   await fill(`one ${MARKER} two\nline two`, `one ${MARKER} three\nline two`);
-  for (const id of ['copy-diff', 'copy-redline', 'copy-stats']) { await page.click('#' + id); await page.waitForTimeout(250); }
+  for (const id of ['copy-diff', 'copy-redline', 'copy-stats']) { await page.click('#' + id); await settle(); }
   await page.click('#btn-opts'); await page.check('#opt-ignoreCase'); await page.check('input[name=ws][value=collapse]'); await page.keyboard.press('Escape');
-  await page.click('input[name=mode][value=words]', { force: true }); await page.waitForTimeout(300);
-  await page.click('input[name=view][value=unified]', { force: true }); await page.waitForTimeout(200);
-  await page.click('#btn-swap'); await page.waitForTimeout(300);
+  await page.click('input[name=mode][value=words]', { force: true }); await settle();
+  await page.click('input[name=view][value=unified]', { force: true }); await settle();
+  await page.click('#btn-swap'); await settle();
   const origin = new URL(base).origin;
   for (const r of requests) {
     const u = new URL(r.url);
@@ -92,32 +93,32 @@ await check('result is above the fold at 1280x800', async () => {
 });
 await check('identical shows no differences and what was ignored', async () => {
   await fill('Same', 'same');
-  await page.click('#btn-opts'); await page.check('#opt-ignoreCase'); await page.keyboard.press('Escape'); await page.waitForTimeout(300);
+  await page.click('#btn-opts'); await page.check('#opt-ignoreCase'); await page.keyboard.press('Escape'); await settle();
   assert.equal((await summary()).trim(), 'No differences.');
   assert.match(await page.textContent('#identical'), /Case ignored/);
   await page.click('#btn-opts'); await page.uncheck('#opt-ignoreCase'); await page.keyboard.press('Escape');
 });
 await check('one empty pane still compares', async () => {
-  await fill('', 'a\nb'); await page.waitForTimeout(200);
+  await fill('', 'a\nb'); await settle();
   assert.match(await page.textContent('#notes'), /Original is empty/);
 });
 await check('line ending chip and Compare strictly (from files)', async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'td-'));
   fs.writeFileSync(path.join(tmp, 'crlf.txt'), 'a\r\nb');
   fs.writeFileSync(path.join(tmp, 'lf.txt'), 'a\nb');
-  await page.click('#btn-clear'); await page.waitForTimeout(200);
-  await page.setInputFiles('#file-a', path.join(tmp, 'crlf.txt')); await page.waitForTimeout(200);
-  await page.setInputFiles('#file-b', path.join(tmp, 'lf.txt')); await page.waitForTimeout(500);
+  await page.click('#btn-clear'); await settle();
+  await page.setInputFiles('#file-a', path.join(tmp, 'crlf.txt')); await settle();
+  await page.setInputFiles('#file-b', path.join(tmp, 'lf.txt')); await settle();
   assert.match(await page.textContent('#notes'), /Line endings differ: CRLF and LF\. Treated as equal\./);
-  await page.click('#notes button.link'); await page.waitForTimeout(500);
+  await page.click('#notes button.link'); await settle();
   assert.match(await summary(), /1 change/);
-  await page.click('.chip'); await page.waitForTimeout(500);
+  await page.click('.chip'); await settle();
   assert.match(await summary(), /No differences/);
   fs.rmSync(tmp, { recursive: true, force: true });
 });
 await check('hidden characters view shows NBSP and ZWSP', async () => {
   await fill('a b', 'a b');
-  await page.check('#tog-hidden'); await page.waitForTimeout(200);
+  await page.check('#tog-hidden'); await settle();
   assert.ok(await page.locator('.hc-box', { hasText: 'NBSP' }).count() > 0);
   await fill('ab', 'a​b');
   assert.ok(await page.locator('.hc-chip', { hasText: 'ZWSP' }).count() > 0);
@@ -140,23 +141,23 @@ await check('next and previous change, keys n and p', async () => {
 });
 await check('hide unchanged lines folds and expands', async () => {
   await fill(Array.from({ length: 40 }, (_, i) => 'line ' + i).join('\n'), Array.from({ length: 40 }, (_, i) => (i === 20 ? 'CHANGED' : 'line ' + i)).join('\n'));
-  await page.check('#tog-hide'); await page.waitForTimeout(200);
+  await page.check('#tog-hide'); await settle();
   const fold = page.locator('.foldbtn').first();
   assert.ok(await fold.count() > 0);
-  await fold.click(); await page.waitForTimeout(200);
+  await fold.click(); await settle();
   await page.uncheck('#tog-hide');
 });
 await check('views and modes switch without errors', async () => {
   await fill('The quick brown fox', 'The quick red fox');
   for (const m of ['lines', 'words', 'chars']) for (const v of ['split', 'unified', 'inline']) {
-    await page.click(`input[name=mode][value=${m}]`, { force: true }); await page.click(`input[name=view][value=${v}]`, { force: true }); await page.waitForTimeout(120);
+    await page.click(`input[name=mode][value=${m}]`, { force: true }); await page.click(`input[name=view][value=${v}]`, { force: true }); await settle();
     assert.ok(await page.locator('#vrows .row').count() > 0, `${m}/${v} has rows`);
   }
 });
 await check('copy redline writes html and plain text', async () => {
   await fill('The quick brown fox jumps', 'The quick red fox leaps');
-  await page.click('input[name=mode][value=words]', { force: true }); await page.waitForTimeout(300);
-  await page.click('#copy-redline'); await page.waitForTimeout(300);
+  await page.click('input[name=mode][value=words]', { force: true }); await settle();
+  await page.click('#copy-redline'); await settle();
   const clip = await page.evaluate(async () => { const items = await navigator.clipboard.read(); const out = {}; for (const it of items) for (const t of it.types) out[t] = await (await it.getType(t)).text(); return out; });
   assert.equal(clip['text/plain'], 'The quick [-brown-]{+red+} fox [-jumps-]{+leaps+}');
   assert.match(clip['text/html'], /<del/);
@@ -164,8 +165,8 @@ await check('copy redline writes html and plain text', async () => {
 });
 await check('copy diff gives the unified diff', async () => {
   await fill('a\nb\nc\nd', 'a\nB\nc\nd');
-  await page.click('input[name=mode][value=lines]', { force: true }); await page.waitForTimeout(300);
-  await page.click('#copy-diff'); await page.waitForTimeout(300);
+  await page.click('input[name=mode][value=lines]', { force: true }); await settle();
+  await page.click('#copy-diff'); await settle();
   const t = await page.evaluate(() => navigator.clipboard.readText());
   assert.equal(t, ['--- original', '+++ changed', '@@ -1,4 +1,4 @@', ' a', '-b', '+B', ' c', ' d'].join('\n'));
 });
@@ -173,10 +174,10 @@ await check('open a text file and refuse a binary file', async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'td-'));
   fs.writeFileSync(path.join(tmp, 'a.txt'), 'hello\nworld');
   fs.writeFileSync(path.join(tmp, 'b.bin'), Buffer.from([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0, 1, 2, 3]));
-  await page.click('#btn-clear'); await page.waitForTimeout(200);
-  await page.setInputFiles('#file-a', path.join(tmp, 'a.txt')); await page.waitForTimeout(300);
+  await page.click('#btn-clear'); await settle();
+  await page.setInputFiles('#file-a', path.join(tmp, 'a.txt')); await settle();
   assert.equal(await page.inputValue('#ta-a'), 'hello\nworld');
-  await page.setInputFiles('#file-b', path.join(tmp, 'b.bin')); await page.waitForTimeout(300);
+  await page.setInputFiles('#file-b', path.join(tmp, 'b.bin')); await settle();
   assert.match(await page.textContent('#toast'), /Word, PDF or image file/);
   assert.equal(await page.inputValue('#ta-b'), '');
   fs.rmSync(tmp, { recursive: true, force: true });
@@ -209,7 +210,7 @@ await check('S3: one 2 MB line, one changed character, folded and expandable', a
   assert.match(t, /^1 change\./);
   assert.ok(await page.locator('#large-a').isVisible(), 'large text tag');
   assert.ok(await page.locator('#vrows .more').count() > 0, 'fold button');
-  await page.locator('#vrows .more').first().click(); await page.waitForTimeout(300);
+  await page.locator('#vrows .more').first().click(); await settle();
   assert.ok(await page.locator('#vrows mark.m-ins, #vrows ins', { hasText: 'X' }).count() > 0, 'X is marked');
 });
 await check('S1: 100k lines, 1,000 changes, first paint under 2 s', async () => {
@@ -219,43 +220,43 @@ await check('S1: 100k lines, 1,000 changes, first paint under 2 s', async () => 
   const ms = Date.now() - t0;
   assert.match(t, /^1,000 changes\./);
   assert.ok(ms < 2000, 'took ' + ms + ' ms');
-  for (const view of ['unified', 'inline']) { await page.click(`input[name=view][value=${view}]`, { force: true }); await page.waitForTimeout(250); assert.ok(await page.locator('#vrows .row').count() > 0); }
+  for (const view of ['unified', 'inline']) { await page.click(`input[name=view][value=${view}]`, { force: true }); await settle(); assert.ok(await page.locator('#vrows .row').count() > 0); }
   await page.click('input[name=view][value=split]', { force: true });
   await page.evaluate(() => { document.getElementById('list').scrollTop = 1e9; });
-  await page.waitForTimeout(300);
+  await settle();
   assert.ok(await page.locator('#vrows .row').count() > 0, 'rows at the end');
 });
 await check('S2: over 20,000 changed rows gives a compact view', async () => {
   let s = 42; const rnd = () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
   const mk = () => Array.from({ length: 22000 }, () => 'row ' + Math.floor(rnd() * 1e9)).join('\n');
-  await page.click('#btn-clear'); await page.waitForTimeout(200);
+  await page.click('#btn-clear'); await settle();
   const [A, B] = [mk(), mk()];
   await page.evaluate(([a, b]) => { for (const [id, v] of [['ta-a', a], ['ta-b', b]]) { const ta = document.getElementById(id); ta.value = v; ta.dispatchEvent(new Event('input', { bubbles: true })); } }, [A, B]);
   await page.click('#btn-compare');
   await page.waitForFunction(() => /change/.test(document.getElementById('summary').textContent), null, { timeout: 20000 });
-  await page.waitForTimeout(300);
+  await settle();
   assert.ok(await page.locator('#compact-note').isVisible(), 'compact note');
   assert.match(await page.textContent('#notes'), /Large change/);
 });
 await check('wrap off, ignore blank lines, hide unchanged', async () => {
-  await page.click('#btn-clear'); await page.waitForTimeout(200);
+  await page.click('#btn-clear'); await settle();
   await page.uncheck('#tog-wrap');
   await fill('a\n\n\nb\nc', 'a\nb\nX');
   assert.ok(await page.locator('#list.nowrap').count() === 1);
-  await page.click('#btn-opts'); await page.check('#opt-ignoreBlank'); await page.keyboard.press('Escape'); await page.waitForTimeout(400);
+  await page.click('#btn-opts'); await page.check('#opt-ignoreBlank'); await page.keyboard.press('Escape'); await settle();
   assert.ok(await page.locator('#vrows .row.ign').count() > 0, 'ignored blank rows shown');
   await page.click('#btn-opts'); await page.uncheck('#opt-ignoreBlank'); await page.keyboard.press('Escape');
   await page.check('#tog-wrap');
 });
 await check('hide and show the text boxes, swap, clear one box', async () => {
-  await page.click('#btn-clear'); await page.waitForTimeout(200);
+  await page.click('#btn-clear'); await settle();
   await fill('left text', 'right text');
   await page.click('#btn-panes'); assert.ok(await page.locator('#ta-a').isHidden());
   assert.equal((await page.textContent('#btn-panes')).trim(), 'Edit texts');
   await page.click('#btn-panes'); assert.ok(await page.locator('#ta-a').isVisible());
-  await page.click('#btn-swap'); await page.waitForTimeout(300);
+  await page.click('#btn-swap'); await settle();
   assert.equal(await page.inputValue('#ta-a'), 'right text');
-  await page.click('#clear-a'); await page.waitForTimeout(300);
+  await page.click('#clear-a'); await settle();
   assert.equal(await page.inputValue('#ta-a'), '');
   assert.match(await page.textContent('#notes'), /Original is empty/);
 });

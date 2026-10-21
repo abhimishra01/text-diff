@@ -102,7 +102,7 @@ function init() {
   const startWorker = () => {
     worker = new Worker(new URL('../diff/worker.js', import.meta.url), { type: 'module' });
     worker.onmessage = onWorkerMessage;
-    worker.onerror = () => { busy = false; hideProgress(); say('The compare failed. Try again with different options.'); };
+    worker.onerror = () => { busy = false; root.dataset.busy = '0'; hideProgress(); say('The compare failed. Try again with different options.'); };
   };
   const showProgress = () => { progress.hidden = false; };
   const hideProgress = () => { clearTimeout(progressTimer); progress.hidden = true; };
@@ -114,6 +114,7 @@ function init() {
     if (!worker) startWorker();
     else if (busy) { worker.terminate(); startWorker(); }
     busy = true;
+    root.dataset.busy = '1';
     const id = ++jobId;
     clearTimeout(progressTimer);
     progressTimer = setTimeout(showProgress, 400);
@@ -123,6 +124,7 @@ function init() {
     const m = ev.data;
     if (m.id !== jobId) return;
     busy = false;
+    root.dataset.busy = '0';
     hideProgress();
     if (m.error) { say('The compare failed: ' + m.error); return; }
     applyResult(m.result);
@@ -132,6 +134,7 @@ function init() {
     worker.terminate();
     worker = null;
     busy = false;
+    root.dataset.busy = '0';
     hideProgress();
     say('Compare cancelled. Change the texts or options to run it again.');
   });
@@ -711,6 +714,7 @@ function init() {
   phoneQuery.addEventListener && phoneQuery.addEventListener('change', () => { autoView(); syncControls(); rebuild(false); });
 
   // ---- start
+  root.dataset.busy = '0';
   syncControls();
   updateCounts();
   updateGutter(taA, gutA);

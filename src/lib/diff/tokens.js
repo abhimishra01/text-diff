@@ -1,9 +1,9 @@
 // Token level diff for words and characters, with ranges that point back into the original text.
 import {
   cleanWithMap, wordTokens, graphemeTokens, graphemeRanges,
-  K_WORD, K_WS, K_NL, K_OTHER,
+  K_WORD, K_WS, K_NL,
 } from './chars.js';
-import { diffInts, EQ, DEL, ADD } from './myers.js';
+import { diffInts, EQ, DEL } from './myers.js';
 
 // A piece covers part of both texts: t = 0 equal, 1 deleted (A only), 2 added (B only).
 // Equal pieces may have an empty range on one side (ignored characters).

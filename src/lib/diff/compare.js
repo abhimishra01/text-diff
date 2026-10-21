@@ -3,7 +3,7 @@
 import {
   withDefaults, normalizeString, countWords, wordTokens, graphemeRanges, K_WORD,
 } from './chars.js';
-import { diffInts, EQ, DEL, ADD } from './myers.js';
+import { diffInts, EQ, DEL } from './myers.js';
 import { tokenDiff } from './tokens.js';
 
 const BREAK_RE = /\r\n|\r|\n/g;
