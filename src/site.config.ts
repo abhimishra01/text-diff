@@ -25,7 +25,7 @@ export default {
   domain: 'bingemind.com/text-diff',
   origin: 'https://bingemind.com/text-diff',
   bingemind,
-  owner: bingemind ? 'Bingemind' : cfg.owner,
+  owner: bingemind ? 'Bingemind (Abhishek Mishra)' : cfg.owner,
   contactWord: 'Contact',
   contactHref: 'https://bingemind.com/#contact',
   contactLabel: 'bingemind.com/#contact',
