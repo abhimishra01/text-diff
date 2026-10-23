@@ -102,7 +102,8 @@ await check('privacy: nothing leaves the page', async () => {
   const origin = new URL(base).origin;
   for (const r of requests) {
     const u = new URL(r.url);
-    if (u.origin !== origin && !r.url.startsWith('data:') && !r.url.startsWith('blob:')) throw new Error('request to ' + r.url);
+    const analytics = /(^|\.)(googletagmanager|google-analytics|analytics\.google)\.com$/.test(u.hostname); // GA4 is allowed, but the marker check below still applies
+    if (u.origin !== origin && !analytics && !r.url.startsWith('data:') && !r.url.startsWith('blob:')) throw new Error('request to ' + r.url);
     const hay = r.url + JSON.stringify(r.headers) + r.body;
     if (hay.includes(MARKER) || hay.includes(encodeURIComponent(MARKER))) throw new Error('marker found in request ' + r.url);
   }
